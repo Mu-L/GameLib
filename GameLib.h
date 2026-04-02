@@ -842,7 +842,7 @@ GameLib::GameLib()
 GameLib::~GameLib()
 {
     // Stop music
-    if (_musicPlaying) {
+    if (_musicPlaying && _gl_mciSendStringA) {
         _gl_mciSendStringA("stop gamelib_music", NULL, 0, NULL);
         _gl_mciSendStringA("close gamelib_music", NULL, 0, NULL);
         _musicPlaying = false;
@@ -865,15 +865,17 @@ GameLib::~GameLib()
     }
     // Free DIB Section resources
     if (_memDC) {
-        if (_oldBmp) {
+        if (_oldBmp && _gl_SelectObject) {
             _gl_SelectObject(_memDC, _oldBmp);
             _oldBmp = NULL;
         }
-        if (_dibSection) {
+        if (_dibSection && _gl_DeleteObject) {
             _gl_DeleteObject(_dibSection);
             _dibSection = NULL;
         }
-        _gl_DeleteDC(_memDC);
+        if (_gl_DeleteDC) {
+            _gl_DeleteDC(_memDC);
+        }
         _memDC = NULL;
     }
     // Frame buffer is managed by DIB Section, no need to free separately
@@ -883,7 +885,9 @@ GameLib::~GameLib()
         DestroyWindow(_hwnd);
         _hwnd = NULL;
     }
-    _gl_timeEndPeriod(1);
+    if (_gl_timeEndPeriod) {
+        _gl_timeEndPeriod(1);
+    }
 }
 
 
@@ -895,18 +899,18 @@ int GameLib::_InitWindowClass()
     static int initialized = 0;
     if (initialized) return 0;
     HINSTANCE inst = GetModuleHandle(NULL);
-    WNDCLASSA wc;
+    WNDCLASSW wc;
     memset(&wc, 0, sizeof(wc));
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    wc.lpszClassName = "GameLibWindowClass";
+    wc.lpszClassName = L"GameLibWindowClass";
     wc.hbrBackground = (HBRUSH)_gl_GetStockObject(BLACK_BRUSH);
     wc.hInstance = inst;
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = _WndProc;
     wc.cbWndExtra = 0;
     wc.cbClsExtra = 0;
-    if (RegisterClassA(&wc) == 0) return -1;
+    if (RegisterClassW(&wc) == 0) return -1;
     initialized = 1;
     return 0;
 }
@@ -924,7 +928,7 @@ LRESULT CALLBACK GameLib::_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
     if (msg == WM_CREATE) {
         self = (GameLib*)(((LPCREATESTRUCT)lParam)->lpCreateParams);
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)self);
-        return DefWindowProc(hWnd, msg, wParam, lParam);
+        return DefWindowProcW(hWnd, msg, wParam, lParam);
     }
 
     self = (GameLib*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
@@ -945,7 +949,7 @@ LRESULT CALLBACK GameLib::_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             int active = LOWORD(wParam);
             self->_active = (!minimized && active) ? true : false;
         }
-        return DefWindowProc(hWnd, msg, wParam, lParam);
+        return DefWindowProcW(hWnd, msg, wParam, lParam);
 
     case WM_KEYDOWN:
         if (lParam & GAMELIB_REPEATED_KEYMASK) return 0;
@@ -994,7 +998,7 @@ LRESULT CALLBACK GameLib::_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
         return 0;
 
     default:
-        return DefWindowProc(hWnd, msg, wParam, lParam);
+        return DefWindowProcW(hWnd, msg, wParam, lParam);
     }
 }
 
@@ -1112,11 +1116,12 @@ int GameLib::Open(int width, int height, const char *title, bool center)
         posY = (screenH - wh) / 2;
     }
 
-    // Convert UTF-8 to wide string
-    int tlen = (int)strlen(title);
-    wchar_t *wtitle = (wchar_t*)malloc((tlen * 2 + 10) * sizeof(wchar_t));
+    // Convert UTF-8 to wide string (query required size first)
+    int wtitleLen = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
+    if (wtitleLen <= 0) return -5;
+    wchar_t *wtitle = (wchar_t*)malloc(wtitleLen * sizeof(wchar_t));
     if (!wtitle) return -5;
-    MultiByteToWideChar(CP_UTF8, 0, title, -1, wtitle, tlen * 2 + 2);
+    MultiByteToWideChar(CP_UTF8, 0, title, -1, wtitle, wtitleLen);
 
     HINSTANCE inst = GetModuleHandle(NULL);
     _hwnd = CreateWindowW(L"GameLibWindowClass", wtitle, style,
@@ -1257,12 +1262,14 @@ void GameLib::SetTitle(const char *title)
 {
     _title = title;
     if (_hwnd) {
-        int len = (int)strlen(title);
-        wchar_t *wt = (wchar_t*)malloc((len * 2 + 10) * sizeof(wchar_t));
-        if (wt) {
-            MultiByteToWideChar(CP_UTF8, 0, title, -1, wt, len * 2 + 2);
-            SetWindowTextW(_hwnd, wt);
-            free(wt);
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
+        if (wlen > 0) {
+            wchar_t *wt = (wchar_t*)malloc(wlen * sizeof(wchar_t));
+            if (wt) {
+                MultiByteToWideChar(CP_UTF8, 0, title, -1, wt, wlen);
+                SetWindowTextW(_hwnd, wt);
+                free(wt);
+            }
         }
     }
 }
@@ -1289,12 +1296,14 @@ void GameLib::_UpdateTitleFps()
     if (!_showFps || !_hwnd) return;
     char buf[256];
     snprintf(buf, sizeof(buf), "%s (FPS: %.1f)", _title.c_str(), _fps);
-    int len = (int)strlen(buf);
-    wchar_t *wt = (wchar_t*)malloc((len * 2 + 10) * sizeof(wchar_t));
-    if (wt) {
-        MultiByteToWideChar(CP_UTF8, 0, buf, -1, wt, len * 2 + 2);
-        SetWindowTextW(_hwnd, wt);
-        free(wt);
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, buf, -1, NULL, 0);
+    if (wlen > 0) {
+        wchar_t *wt = (wchar_t*)malloc(wlen * sizeof(wchar_t));
+        if (wt) {
+            MultiByteToWideChar(CP_UTF8, 0, buf, -1, wt, wlen);
+            SetWindowTextW(_hwnd, wt);
+            free(wt);
+        }
     }
 }
 
@@ -1582,17 +1591,19 @@ void GameLib::DrawTextGDI(int x, int y, const char *text, uint32_t color, const 
 {
     if (!_memDC || !text) return;
 
-    // Convert UTF-8 to wide string
-    int tlen = (int)strlen(text);
-    wchar_t *wtext = (wchar_t*)malloc((tlen + 1) * sizeof(wchar_t));
+    // Convert UTF-8 to wide string (query required size first)
+    int wtextLen = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+    if (wtextLen <= 0) return;
+    wchar_t *wtext = (wchar_t*)malloc(wtextLen * sizeof(wchar_t));
     if (!wtext) return;
-    int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, tlen + 1);
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, wtextLen);
 
     // Convert font name to wide string
-    int flen = (int)strlen(fontName);
-    wchar_t *wfont = (wchar_t*)malloc((flen + 1) * sizeof(wchar_t));
+    int wfontLen = MultiByteToWideChar(CP_UTF8, 0, fontName, -1, NULL, 0);
+    if (wfontLen <= 0) { free(wtext); return; }
+    wchar_t *wfont = (wchar_t*)malloc(wfontLen * sizeof(wchar_t));
     if (!wfont) { free(wtext); return; }
-    MultiByteToWideChar(CP_UTF8, 0, fontName, -1, wfont, flen + 1);
+    MultiByteToWideChar(CP_UTF8, 0, fontName, -1, wfont, wfontLen);
 
     // Create font
     HFONT font = _gl_CreateFontW(
@@ -1613,7 +1624,7 @@ void GameLib::DrawTextGDI(int x, int y, const char *text, uint32_t color, const 
         _gl_SetBkMode(_memDC, 1);  // TRANSPARENT
 
         // Draw text
-        _gl_TextOutW(_memDC, x, y, wtext, wlen - 1);
+        _gl_TextOutW(_memDC, x, y, wtext, wtextLen - 1);
 
         // Restore old font
         _gl_SelectObject(_memDC, oldFont);
@@ -1634,17 +1645,19 @@ int GameLib::GetTextWidthGDI(const char *text, const char *fontName, int fontSiz
 {
     if (!_memDC || !text) return 0;
 
-    // Convert UTF-8 to wide string
-    int tlen = (int)strlen(text);
-    wchar_t *wtext = (wchar_t*)malloc((tlen + 1) * sizeof(wchar_t));
+    // Convert UTF-8 to wide string (query required size first)
+    int wtextLen = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+    if (wtextLen <= 0) return 0;
+    wchar_t *wtext = (wchar_t*)malloc(wtextLen * sizeof(wchar_t));
     if (!wtext) return 0;
-    int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, tlen + 1);
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, wtextLen);
 
     // Convert font name to wide string
-    int flen = (int)strlen(fontName);
-    wchar_t *wfont = (wchar_t*)malloc((flen + 1) * sizeof(wchar_t));
+    int wfontLen = MultiByteToWideChar(CP_UTF8, 0, fontName, -1, NULL, 0);
+    if (wfontLen <= 0) { free(wtext); return 0; }
+    wchar_t *wfont = (wchar_t*)malloc(wfontLen * sizeof(wchar_t));
     if (!wfont) { free(wtext); return 0; }
-    MultiByteToWideChar(CP_UTF8, 0, fontName, -1, wfont, flen + 1);
+    MultiByteToWideChar(CP_UTF8, 0, fontName, -1, wfont, wfontLen);
 
     // Create font
     HFONT font = _gl_CreateFontW(
@@ -1659,7 +1672,7 @@ int GameLib::GetTextWidthGDI(const char *text, const char *fontName, int fontSiz
     SIZE size = {0, 0};
     if (font) {
         HFONT oldFont = (HFONT)_gl_SelectObject(_memDC, font);
-        _gl_GetTextExtentPoint32W(_memDC, wtext, wlen - 1, &size);
+        _gl_GetTextExtentPoint32W(_memDC, wtext, wtextLen - 1, &size);
         _gl_SelectObject(_memDC, oldFont);
         _gl_DeleteObject(font);
     }
