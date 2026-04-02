@@ -5,7 +5,7 @@
 `GameLib.h` 是一个面向初学者的 **单头文件游戏库**，基于 Win32 GDI，无需 SDL 或其他第三方库。目标用户是小朋友，用于在 Dev C++ (GCC 4.9.2) 环境下开发简单游戏（空战、俄罗斯方块、走迷宫等）。
 
 **文件位置**: `GameLib.h`
-**当前行数**: ~2200 行
+**当前行数**: ~2381 行
 **最后修改**: 2026/04/03
 
 ---
@@ -32,7 +32,7 @@
 
 ### 1.3 双缓冲架构
 
-所有绘制操作都写入内存帧缓冲 (`uint32_t*` ARGB 数组)，只有调用 `Update()` 时才通过 `SetDIBitsToDevice` 刷新到窗口。
+所有绘制操作都写入内存帧缓冲 (`uint32_t*` ARGB 数组)，只有调用 `Update()` 时才通过 `BitBlt` 从 DIB Section 的常备 `_memDC` 刷新到窗口。
 
 ### 1.4 图形自实现
 
@@ -42,7 +42,7 @@
 - 扫描线三角形填充
 - 内嵌 8x8 ASCII 位图字体
 
-唯一使用的 GDI 函数是 `SetDIBitsToDevice`（用于最终显示）。
+唯一使用的 GDI 函数是 `BitBlt`（用于帧缓冲最终显示）和 `TextOutW`（用于 GDI 系统字体渲染）。
 
 ### 1.5 精灵系统
 
@@ -112,7 +112,7 @@ GameLib.h
 
 ### 3.2 链接库
 
-- `gdi32` — SetDIBitsToDevice（通过 LoadLibrary 动态加载）
+- `gdi32` — BitBlt, CreateDIBSection, CreateCompatibleDC, CreateFontW, TextOutW, SelectObject, DeleteObject, DeleteDC, GetStockObject, SetDIBitsToDevice, SetTextColor, SetBkMode, GetTextExtentPoint32W, GdiFlush（通过 LoadLibrary 动态加载）
 - `winmm` — timeGetTime, timeBeginPeriod, PlaySound, mciSendString（通过 LoadLibrary 动态加载）
 - `gdiplus` — GdiplusStartup, GdipCreateBitmapFromStream, GdipBitmapLockBits 等（通过 LoadLibrary 动态加载，首次调用 `LoadSprite` 时懒加载）
 - `ole32` — CreateStreamOnHGlobal（通过 LoadLibrary 动态加载，随 gdiplus 一起加载）
@@ -153,8 +153,8 @@ GameLib.h
 ### 4.2 颜色工具宏
 
 ```c
-COLOR_RGB(r, g, b)       // 从 R/G/B 构造不透明颜色
-COLOR_ARGB(a, r, g, b)   // 从 A/R/G/B 构造颜色
+COLOR_RGB(r, g, b)       // 从 R/G/B 构造不透明颜色（每分量 & 0xFF 防溢出）
+COLOR_ARGB(a, r, g, b)   // 从 A/R/G/B 构造颜色（每分量 & 0xFF 防溢出）
 COLOR_GET_A(c)            // 提取 Alpha 分量
 COLOR_GET_R(c)            // 提取 Red 分量
 COLOR_GET_G(c)            // 提取 Green 分量
@@ -229,9 +229,14 @@ std::string _title;
 int _width, _height;    // 客户区尺寸
 
 // 帧缓冲
-uint32_t *_framebuffer; // width * height 的 ARGB 数组，malloc 分配
+uint32_t *_framebuffer; // width * height 的 ARGB 数组，由 DIB Section 管理
 
-// DIB 信息（用于 SetDIBitsToDevice）
+// DIB Section（用于 GDI 文字渲染 + BitBlt 刷新）
+HDC _memDC;             // 常备内存 DC
+HBITMAP _dibSection;    // DIB Section 位图
+HBITMAP _oldBmp;        // 旧位图（用于恢复）
+
+// DIB 信息（用于 CreateDIBSection）
 unsigned char _bmi_data[sizeof(BITMAPINFO) + 16 * sizeof(RGBQUAD)];
 
 // 输入状态
@@ -239,6 +244,7 @@ int _keys[512];         // 当前帧按键状态
 int _keys_prev[512];    // 上一帧按键状态（用于边沿检测）
 int _mouseX, _mouseY;   // 鼠标坐标
 int _mouseButtons[3];   // 鼠标三键状态
+int _mouseButtons_prev[3]; // 上一帧鼠标状态（用于边沿检测）
 
 // 时间
 DWORD _timeStart;       // Open() 时的时间戳
@@ -267,13 +273,21 @@ static bool _srandDone; // srand 是否已初始化
 
 ### 6.1 窗口与主循环
 
+#### `GameLib()` (构造函数)
+- 初始化所有成员为零/默认值
+- 调用 `srand(time(NULL))` 初始化随机数（只执行一次，静态标志控制）
+- **加载核心 API**：调用 `_gamelib_load_apis()` 动态加载 `gdi32.dll` 和 `winmm.dll` 的所有函数指针
+- 若加载失败，弹出 `MessageBoxA` 错误对话框并调用 `exit(1)` 终止程序
+- 这意味着 API 加载在构造时即完成，后续所有方法无需检查函数指针是否为 NULL
+
 #### `int Open(int width, int height, const char *title, bool center = false)`
-- 创建窗口并初始化帧缓冲、输入、时间系统
+- 创建窗口并初始化帧缓冲（通过 DIB Section）、输入、时间系统
+- **尺寸验证**：`width/height` 必须在 `1~16384` 范围内，否则返回 -7
 - **保证客户区严格等于 width × height**：先用 `AdjustWindowRect` 计算，创建后用 `GetClientRect` 二次校正
 - `center=true` 时窗口居中显示；否则使用 `CW_USEDEFAULT`
 - 窗口样式: `WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX`（不可缩放）
 - 窗口标题支持 UTF-8（内部转 WideChar）
-- 返回值: 0=成功, 负数=错误
+- 返回值: 0=成功, -1=窗口类注册失败, -2=创建 DC 失败, -3=创建 DIB Section 失败, -4=SelectObject 失败, -5=UTF-8 转换失败, -6=创建窗口失败, -7=尺寸超限
 - 使用 `GWLP_USERDATA` 存储 this 指针
 - 调用 `timeBeginPeriod(1)` 提高时钟精度
 
@@ -281,8 +295,8 @@ static bool _srandDone; // srand 是否已初始化
 - 窗口是否已关闭（WM_CLOSE 或 WM_DESTROY 触发）
 
 #### `void Update()`
-1. 通过 `SetDIBitsToDevice` 将帧缓冲刷新到窗口
-2. 保存上一帧按键状态到 `_keys_prev`
+1. 通过 `BitBlt` 将 DIB Section 的 `_memDC` 刷新到窗口
+2. 保存上一帧按键状态到 `_keys_prev`，鼠标状态到 `_mouseButtons_prev`
 3. 派发 Windows 消息（PeekMessage 循环）
 4. 更新 deltaTime 和 FPS（每秒统计一次）
 5. FPS 更新时调用 `_UpdateTitleFps()` 更新标题栏显示
@@ -329,10 +343,11 @@ static bool _srandDone; // srand 是否已初始化
 - **Bresenham 直线算法**，通过 SetPixel 逐点绘制（带边界检查）
 
 #### `void DrawRect(int x, int y, int w, int h, uint32_t color)`
-- 绘制矩形边框（由 4 条 DrawLine 组成）
+- 绘制矩形边框（顶部和底部用 `_DrawHLine`，左右垂直边逐像素 `SetPixel`）
+- `w <= 0 || h <= 0` 时直接返回
 
 #### `void FillRect(int x, int y, int w, int h, uint32_t color)`
-- 填充矩形（带裁剪，直接写帧缓冲）
+- 填充矩形（带裁剪，直接写帧缓冲；`_framebuffer` 为 NULL 时直接返回）
 
 #### `void DrawCircle(int cx, int cy, int r, uint32_t color)`
 - **中点圆算法**，绘制 8 个对称点
@@ -347,6 +362,7 @@ static bool _srandDone; // srand 是否已初始化
 - **扫描线填充算法**
 - 先按 y 排序三个顶点，然后逐行扫描
 - 处理了退化情况（三点共线/水平线）
+- 边插值使用 `int64_t` 强制转换防止乘法溢出
 
 ### 6.4 文字渲染
 
@@ -356,7 +372,7 @@ static bool _srandDone; // srand 是否已初始化
 - 每个字符宽度 8 像素
 
 #### `void DrawNumber(int x, int y, int number, uint32_t color)`
-- 将整数转为字符串后调用 DrawText
+- 将整数转为字符串后调用 DrawText（内部使用 `snprintf` 防溢出）
 
 #### `void DrawTextScale(int x, int y, const char *text, uint32_t color, int scale)`
 - 放大版文字绘制，每个字体像素变为 scale × scale 的矩形
@@ -393,12 +409,14 @@ static bool _srandDone; // srand 是否已初始化
 #### `int CreateSprite(int width, int height)`
 - 创建空白精灵，返回整数 ID（失败返回 -1）
 - 像素初始化为全 0（透明黑）
+- 尺寸限制：`1~16384`，使用 `(size_t)` 强转防止 malloc 溢出
 
 #### `int LoadSpriteBMP(const char *filename)`
 - 从 BMP 文件加载精灵，支持 **24-bit 和 32-bit** BMP
 - 处理 bottom-up / top-down 行序
 - 每行按 4 字节对齐读取
 - 24-bit BMP alpha 默认为 0xFF
+- **安全性**：使用 `memcpy` 读取 BMP 头字段（避免严格别名/对齐问题），尺寸限制 `1~16384`
 - 返回精灵 ID（失败返回 -1）
 
 #### `int LoadSprite(const char *filename)`
@@ -414,7 +432,7 @@ static bool _srandDone; // srand 是否已初始化
 - 释放精灵内存，标记槽位为未使用
 
 #### `void DrawSprite(int id, int x, int y)`
-- 绘制精灵到帧缓冲（带裁剪）
+- 绘制精灵到帧缓冲（委托给 `DrawSpriteEx(id, x, y, 0)`）
 - **Alpha > 0 的像素才绘制**（简单透明判定，非混合）
 
 #### `void DrawSpriteEx(int id, int x, int y, int flags)`
@@ -452,6 +470,9 @@ static bool _srandDone; // srand 是否已初始化
 #### `bool IsMouseDown(int button) const`
 - 鼠标按键是否按下
 
+#### `bool IsMousePressed(int button) const`
+- 鼠标按键是否刚刚按下（**边沿检测**：当前帧按下且上一帧未按下）
+
 ### 6.8 声音
 
 #### `void PlayBeep(int frequency, int duration)`
@@ -471,6 +492,7 @@ static bool _srandDone; // srand 是否已初始化
 - 先尝试以 `mpegvideo` 类型打开，失败则自动检测类型
 - 使用固定别名 `gamelib_music`，同时只能播放一首背景音乐
 - 调用时会自动停止之前的音乐
+- **安全性**：`filename` 为 NULL 时直接返回；拒绝包含引号的文件名（防止 MCI 命令注入）；`snprintf` 截断保护
 - **与 PlayWAV 独立**，可同时播放背景音乐和音效
 
 #### `void StopMusic()`
@@ -486,7 +508,7 @@ static bool _srandDone; // srand 是否已初始化
 - AABB 矩形碰撞检测
 
 #### `static bool CircleOverlap(int cx1, int cy1, int r1, int cx2, int cy2, int r2)`
-- 圆形碰撞检测（距离平方比较，无浮点开方）
+- 圆形碰撞检测（距离平方比较，无浮点开方；使用 `int64_t` 防溢出）
 
 #### `static bool PointInRect(int px, int py, int x, int y, int w, int h)`
 - 点是否在矩形内
@@ -506,7 +528,7 @@ static bool _srandDone; // srand 是否已初始化
 
 #### `int CreateTilemap(int cols, int rows, int tileSize, int tilesetId)`
 - 创建瓦片地图，返回整数 ID（失败返回 -1）
-- `cols × rows`：地图网格大小
+- `cols × rows`：地图网格大小（均不超过 4096，使用 `(size_t)` 强转防止 malloc 溢出）
 - `tileSize`：瓦片边长（像素），tileset 精灵按此尺寸切分为格子
 - `tilesetId`：通过 `LoadSprite` 或 `CreateSprite` 加载的精灵 ID，作为瓦片图集
 - tileset 中瓦片编号从 0 开始，从左到右、从上到下排列
@@ -554,7 +576,7 @@ static bool _srandDone; // srand 是否已初始化
 | `WM_LBUTTONDOWN/UP` | 更新 `_mouseButtons[0]` |
 | `WM_RBUTTONDOWN/UP` | 更新 `_mouseButtons[1]` |
 | `WM_MBUTTONDOWN/UP` | 更新 `_mouseButtons[2]` |
-| `WM_PAINT` | 用 `SetDIBitsToDevice` 重绘帧缓冲 |
+| `WM_PAINT` | 用 `BitBlt` 从 `_memDC` 重绘帧缓冲 |
 
 ---
 
@@ -562,18 +584,19 @@ static bool _srandDone; // srand 是否已初始化
 
 | 方法 | 说明 |
 |------|------|
-| `static int _InitWindowClass()` | 注册窗口类（只执行一次，使用静态局部变量） |
+| `static int _InitWindowClass()` | 注册窗口类（使用 `RegisterClassW`，只执行一次，使用静态局部变量） |
 | `static LRESULT CALLBACK _WndProc(...)` | 窗口过程回调 |
 | `void _DispatchMessages()` | PeekMessage 循环派发消息 |
-| `void _InitDIBInfo(void *ptr, int w, int h)` | 初始化 BITMAPINFO（32-bit, top-down） |
+| `void _InitDIBInfo(void *ptr, int w, int h)` | 初始化 BITMAPINFO（32-bit, top-down，`biSizeImage` 使用 `(size_t)` 防溢出） |
 | `void _SetPixelFast(int x, int y, uint32_t c)` | 无边界检查的像素写入 |
-| `void _DrawHLine(int x1, int x2, int y, uint32_t c)` | 带裁剪的水平线（FillCircle/FillTriangle 内部用） |
+| `void _DrawHLine(int x1, int x2, int y, uint32_t c)` | 带裁剪的水平线（DrawRect/FillCircle/FillTriangle 内部用） |
 | `void _UpdateTitleFps()` | 当 `_showFps=true` 时更新标题栏 FPS 显示（在 FPS 统计更新时调用） |
 | `int _AllocSpriteSlot()` | 在 `_sprites` 向量中找空闲槽位或追加新槽位 |
 | `int _AllocTilemapSlot()` | 在 `_tilemaps` 向量中找空闲槽位或追加新槽位 |
 | `static int _gamelib_gdiplus_init()` | 懒加载 `gdiplus.dll` 和 `ole32.dll`，解析函数地址并调用 `GdiplusStartup`（仅首次执行） |
 | `static void _gamelib_com_release(void *obj)` | 通过 COM vtable 手动调用 `IUnknown::Release`（无需 ObjBase.h） |
 | `static uint32_t* _gamelib_gdiplus_load(...)` | 从内存数据通过 GDI+ 解码图片，返回 32bppARGB 像素数组 |
+| `static int _gamelib_load_apis()` | 动态加载 `gdi32.dll` 和 `winmm.dll` 的全部函数指针（构造函数调用，仅首次执行） |
 
 ---
 
@@ -646,7 +669,7 @@ int main() {
 | 使用 `GWLP_USERDATA`（非 `GWL_USERDATA`） | 兼容 64 位编译 |
 | 精灵用整数 ID 管理 | 比对象指针更简单，适合初学者 |
 | 使用 `malloc/free` 管理像素内存 | 与 C 风格一致，简单直接 |
-| 窗口类注册使用 `RegisterClassA` + `CreateWindowW` | 类名用 ANSI 简单，标题用 WideChar 支持 UTF-8 |
+| 窗口类注册使用 `RegisterClassW` + `CreateWindowW` | 全 Unicode 链一致（`RegisterClassW` → `CreateWindowW` → `DefWindowProcW`），标题支持 UTF-8 |
 | 键盘重复过滤（bit 30） | 避免按住一个键产生大量 KeyDown 事件 |
 | FPS 每秒统计一次 | 平滑显示，避免帧间波动 |
 | Color Key 用品红 (0xFFFF00FF) 而非黑色 | 黑色难以制作和判断，品红是 2D 资源常用透明色 |
@@ -674,3 +697,14 @@ int main() {
 | `DrawTextGDI` 动态创建字体 | 每次调用创建/销毁字体，适合少量文字；若需大量文字可后续添加字体缓存 |
 | `BitBlt` 替代 `SetDIBitsToDevice` | DIB Section 场景下 `BitBlt` 更高效，且代码更简洁 |
 | GDI 文字函数动态加载 | 所有 GDI 函数通过 `LoadLibrary` + `GetProcAddress` 加载，保持只需 `-mwindows` 编译 |
+| `DrawTextGDI` alpha 修复 | GDI `TextOutW` 写入 alpha=0；绘制后 `GdiFlush()` + 扫描文字 bounding box，对 alpha=0 且 RGB!=0 的像素恢复 alpha=0xFF |
+| 构造函数加载核心 API | `gdi32.dll`/`winmm.dll` 是 Windows 系统 DLL，实际不会加载失败；构造时加载消除了"API 未加载"状态，后续方法无需 NULL 检查 |
+| 构造失败 `MessageBoxA` + `exit(1)` | 面向初学者的库，构造失败（系统 DLL 无法加载）是灾难性的，直接终止比返回错误码更友好 |
+| 精灵/帧缓冲尺寸限制 16384 | 防止 `width * height * 4` 整数溢出（16384 × 16384 × 4 = 1 GB，在 `size_t` 范围内） |
+| Tilemap 尺寸限制 4096 | 防止 `cols * rows` 整数溢出，4096 × 4096 = 16M tiles 已足够大 |
+| `CircleOverlap` / `FillTriangle` 使用 `int64_t` | 两个 `int` 坐标相减再相乘可溢出 32 位；`int64_t` 保证中间结果不溢出 |
+| `COLOR_RGB` / `COLOR_ARGB` 每分量 `& 0xFF` | 防止调用者传入超过 255 的值导致位移溢出污染相邻通道 |
+| `LoadSpriteBMP` 用 `memcpy` 读 BMP 头 | 避免通过指针强制转换（aliasing cast）读取未对齐的多字节字段，符合严格别名规则 |
+| `_gamelib_load_apis` 失败时清理所有指针 | GetProcAddress 部分失败时 NULL out 所有指针 + FreeLibrary 两个 DLL，防止悬空指针 |
+| `_gamelib_gdiplus_init` 失败时分级清理 | -2/-3 错误路径 FreeLibrary 已加载的 DLL；-4 错误（`GdiplusStartup` 失败）不释放 DLL 因为函数指针已指向 DLL 内部地址 |
+| `PlayMusic` 拒绝含引号的文件名 | MCI 命令是字符串拼接，引号可导致命令注入；`snprintf` 截断保护防止缓冲区溢出 |
