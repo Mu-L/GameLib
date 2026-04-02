@@ -4,7 +4,7 @@ int main()
 {
     GameLib game;
     game.Open(800, 600, "Hello GameLib", true);
-
+	game.ShowFps(true);
     while (!game.IsClosed()) {
         game.Clear(COLOR_DARK_BLUE);
         game.DrawTextScale(200, 250, "Hello, World!", COLOR_GOLD, 3);

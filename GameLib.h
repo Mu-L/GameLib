@@ -105,6 +105,7 @@ typedef DWORD MCIERROR;
 typedef int (WINAPI *PFN_SetDIBitsToDevice)(
     HDC, int, int, DWORD, DWORD, int, int, UINT, UINT,
     const void*, const BITMAPINFO*, UINT);
+typedef HGDIOBJ (WINAPI *PFN_GetStockObject)(int);
 
 // winmm.dll
 typedef DWORD   (WINAPI *PFN_timeGetTime)(void);
@@ -499,6 +500,7 @@ static const unsigned char _gamelib_font8x8[95][8] = {
 // 动态加载的函数指针（全局，进程生命周期内有效）
 //---------------------------------------------------------------------
 static PFN_SetDIBitsToDevice   _gl_SetDIBitsToDevice  = NULL;
+static PFN_GetStockObject      _gl_GetStockObject     = NULL;
 static PFN_timeGetTime         _gl_timeGetTime        = NULL;
 static PFN_timeBeginPeriod     _gl_timeBeginPeriod    = NULL;
 static PFN_timeEndPeriod       _gl_timeEndPeriod      = NULL;
@@ -516,13 +518,15 @@ static int _gamelib_load_apis()
     if (!hGdi32 || !hWinmm) return -1;
 
     _gl_SetDIBitsToDevice = (PFN_SetDIBitsToDevice)GetProcAddress(hGdi32, "SetDIBitsToDevice");
+    _gl_GetStockObject    = (PFN_GetStockObject)GetProcAddress(hGdi32, "GetStockObject");
     _gl_timeGetTime       = (PFN_timeGetTime)GetProcAddress(hWinmm, "timeGetTime");
     _gl_timeBeginPeriod   = (PFN_timeBeginPeriod)GetProcAddress(hWinmm, "timeBeginPeriod");
     _gl_timeEndPeriod     = (PFN_timeEndPeriod)GetProcAddress(hWinmm, "timeEndPeriod");
     _gl_PlaySoundA        = (PFN_PlaySoundA)GetProcAddress(hWinmm, "PlaySoundA");
     _gl_mciSendStringA    = (PFN_mciSendStringA)GetProcAddress(hWinmm, "mciSendStringA");
 
-    if (!_gl_SetDIBitsToDevice || !_gl_timeGetTime ||
+    if (!_gl_SetDIBitsToDevice || !_gl_GetStockObject ||
+        !_gl_timeGetTime ||
         !_gl_timeBeginPeriod  || !_gl_timeEndPeriod ||
         !_gl_PlaySoundA       || !_gl_mciSendStringA) {
         return -1;
@@ -613,7 +617,7 @@ int GameLib::_InitWindowClass()
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wc.lpszClassName = "GameLibWindowClass";
-    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    wc.hbrBackground = (HBRUSH)_gl_GetStockObject(BLACK_BRUSH);
     wc.hInstance = inst;
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = _WndProc;
