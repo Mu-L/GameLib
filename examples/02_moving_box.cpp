@@ -1,9 +1,9 @@
 // 02_moving_box.cpp - Keyboard Control
 //
-// 用方向键控制一个方块在屏幕上移动。
-// 学习：IsKeyDown, FillRect, DrawText, DrawPrintf
+// Use arrow keys to move a box around the screen.
+// Learn: IsKeyDown, FillRect, DrawText, DrawPrintf
 //
-// 编译: g++ -o 02_moving_box.exe 02_moving_box.cpp -mwindows
+// Compile: g++ -o 02_moving_box.exe 02_moving_box.cpp -mwindows
 
 #include "../GameLib.h"
 
@@ -17,13 +17,13 @@ int main()
     int speed = 4;
 
     while (!game.IsClosed()) {
-        // 方向键移动
+        // Arrow key movement
         if (game.IsKeyDown(KEY_LEFT))  x -= speed;
         if (game.IsKeyDown(KEY_RIGHT)) x += speed;
         if (game.IsKeyDown(KEY_UP))    y -= speed;
         if (game.IsKeyDown(KEY_DOWN))  y += speed;
 
-        // 限制在窗口范围内
+        // Keep inside window bounds
         if (x < 0) x = 0;
         if (y < 0) y = 0;
         if (x + size > game.GetWidth())  x = game.GetWidth() - size;
@@ -31,10 +31,10 @@ int main()
 
         game.Clear(COLOR_BLACK);
 
-        // 画方块
+        // Draw the box
         game.FillRect(x, y, size, size, COLOR_CYAN);
 
-        // 提示信息
+        // Hint text
         game.DrawText(10, 10, "Arrow keys to move", COLOR_WHITE);
         game.DrawPrintf(10, 25, COLOR_GRAY, "Position: %d, %d", x, y);
 

@@ -42,7 +42,7 @@
 // Compile command (MinGW / Dev C++):
 //     g++ -o game.exe main.cpp -mwindows
 //
-// Last Modified: 2026/04/02
+// Last Modified: 2026/04/03
 //
 //=====================================================================
 #ifndef GAMELIB_H
@@ -108,6 +108,17 @@ typedef int (WINAPI *PFN_SetDIBitsToDevice)(
     HDC, int, int, DWORD, DWORD, int, int, UINT, UINT,
     const void*, const BITMAPINFO*, UINT);
 typedef HGDIOBJ (WINAPI *PFN_GetStockObject)(int);
+typedef HDC (WINAPI *PFN_CreateCompatibleDC)(HDC);
+typedef BOOL (WINAPI *PFN_DeleteDC)(HDC);
+typedef HBITMAP (WINAPI *PFN_CreateDIBSection)(HDC, const BITMAPINFO*, UINT, void**, HANDLE, DWORD);
+typedef HGDIOBJ (WINAPI *PFN_SelectObject)(HDC, HGDIOBJ);
+typedef BOOL (WINAPI *PFN_DeleteObject)(HGDIOBJ);
+typedef BOOL (WINAPI *PFN_BitBlt)(HDC, int, int, int, int, HDC, int, int, DWORD);
+typedef HFONT (WINAPI *PFN_CreateFontW)(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, const WCHAR*);
+typedef BOOL (WINAPI *PFN_TextOutW)(HDC, int, int, LPCWSTR, int);
+typedef COLORREF (WINAPI *PFN_SetTextColor)(HDC, COLORREF);
+typedef int (WINAPI *PFN_SetBkMode)(HDC, int);
+typedef BOOL (WINAPI *PFN_GetTextExtentPoint32W)(HDC, LPCWSTR, int, SIZE*);
 
 // winmm.dll
 typedef DWORD   (WINAPI *PFN_timeGetTime)(void);
@@ -302,6 +313,12 @@ public:
     void DrawTextScale(int x, int y, const char *text, uint32_t color, int scale);
     void DrawPrintf(int x, int y, uint32_t color, const char *fmt, ...);
 
+    // -------- GDI Text Rendering (system fonts, Chinese support) --------
+    void DrawTextGDI(int x, int y, const char *text, uint32_t color, const char *fontName, int fontSize);
+    void DrawTextGDI(int x, int y, const char *text, uint32_t color, int fontSize);
+    int GetTextWidthGDI(const char *text, const char *fontName, int fontSize);
+    int GetTextHeightGDI(int fontSize);
+
     // -------- Sprite System (managed by integer ID) --------
     int CreateSprite(int width, int height);
     int LoadSpriteBMP(const char *filename);
@@ -384,7 +401,12 @@ private:
     // frame buffer
     uint32_t *_framebuffer;
 
-    // DIB info (for SetDIBitsToDevice)
+    // DIB Section (for GDI text rendering)
+    HDC _memDC;
+    HBITMAP _dibSection;
+    HBITMAP _oldBmp;
+
+    // DIB info (for SetDIBitsToDevice, kept for compatibility)
     unsigned char _bmi_data[sizeof(BITMAPINFO) + 16 * sizeof(RGBQUAD)];
 
     // input state
@@ -539,6 +561,17 @@ static const unsigned char _gamelib_font8x8[95][8] = {
 //---------------------------------------------------------------------
 static PFN_SetDIBitsToDevice   _gl_SetDIBitsToDevice  = NULL;
 static PFN_GetStockObject      _gl_GetStockObject     = NULL;
+static PFN_CreateCompatibleDC  _gl_CreateCompatibleDC = NULL;
+static PFN_DeleteDC            _gl_DeleteDC           = NULL;
+static PFN_CreateDIBSection    _gl_CreateDIBSection   = NULL;
+static PFN_SelectObject        _gl_SelectObject       = NULL;
+static PFN_DeleteObject        _gl_DeleteObject       = NULL;
+static PFN_BitBlt              _gl_BitBlt             = NULL;
+static PFN_CreateFontW         _gl_CreateFontW        = NULL;
+static PFN_TextOutW            _gl_TextOutW           = NULL;
+static PFN_SetTextColor        _gl_SetTextColor       = NULL;
+static PFN_SetBkMode           _gl_SetBkMode          = NULL;
+static PFN_GetTextExtentPoint32W _gl_GetTextExtentPoint32W = NULL;
 static PFN_timeGetTime         _gl_timeGetTime        = NULL;
 static PFN_timeBeginPeriod     _gl_timeBeginPeriod    = NULL;
 static PFN_timeEndPeriod       _gl_timeEndPeriod      = NULL;
@@ -557,6 +590,18 @@ static int _gamelib_load_apis()
 
     _gl_SetDIBitsToDevice = (PFN_SetDIBitsToDevice)GetProcAddress(hGdi32, "SetDIBitsToDevice");
     _gl_GetStockObject    = (PFN_GetStockObject)GetProcAddress(hGdi32, "GetStockObject");
+    _gl_CreateCompatibleDC = (PFN_CreateCompatibleDC)GetProcAddress(hGdi32, "CreateCompatibleDC");
+    _gl_DeleteDC          = (PFN_DeleteDC)GetProcAddress(hGdi32, "DeleteDC");
+    _gl_CreateDIBSection  = (PFN_CreateDIBSection)GetProcAddress(hGdi32, "CreateDIBSection");
+    _gl_SelectObject      = (PFN_SelectObject)GetProcAddress(hGdi32, "SelectObject");
+    _gl_DeleteObject      = (PFN_DeleteObject)GetProcAddress(hGdi32, "DeleteObject");
+    _gl_BitBlt            = (PFN_BitBlt)GetProcAddress(hGdi32, "BitBlt");
+    _gl_CreateFontW       = (PFN_CreateFontW)GetProcAddress(hGdi32, "CreateFontW");
+    _gl_TextOutW          = (PFN_TextOutW)GetProcAddress(hGdi32, "TextOutW");
+    _gl_SetTextColor      = (PFN_SetTextColor)GetProcAddress(hGdi32, "SetTextColor");
+    _gl_SetBkMode         = (PFN_SetBkMode)GetProcAddress(hGdi32, "SetBkMode");
+    _gl_GetTextExtentPoint32W = (PFN_GetTextExtentPoint32W)GetProcAddress(hGdi32, "GetTextExtentPoint32W");
+
     _gl_timeGetTime       = (PFN_timeGetTime)GetProcAddress(hWinmm, "timeGetTime");
     _gl_timeBeginPeriod   = (PFN_timeBeginPeriod)GetProcAddress(hWinmm, "timeBeginPeriod");
     _gl_timeEndPeriod     = (PFN_timeEndPeriod)GetProcAddress(hWinmm, "timeEndPeriod");
@@ -564,6 +609,10 @@ static int _gamelib_load_apis()
     _gl_mciSendStringA    = (PFN_mciSendStringA)GetProcAddress(hWinmm, "mciSendStringA");
 
     if (!_gl_SetDIBitsToDevice || !_gl_GetStockObject ||
+        !_gl_CreateCompatibleDC || !_gl_DeleteDC ||
+        !_gl_CreateDIBSection || !_gl_SelectObject || !_gl_DeleteObject ||
+        !_gl_BitBlt || !_gl_CreateFontW || !_gl_TextOutW ||
+        !_gl_SetTextColor || !_gl_SetBkMode || !_gl_GetTextExtentPoint32W ||
         !_gl_timeGetTime ||
         !_gl_timeBeginPeriod  || !_gl_timeEndPeriod ||
         !_gl_PlaySoundA       || !_gl_mciSendStringA) {
@@ -764,6 +813,9 @@ GameLib::GameLib()
     _width = 0;
     _height = 0;
     _framebuffer = NULL;
+    _memDC = NULL;
+    _dibSection = NULL;
+    _oldBmp = NULL;
     memset(_keys, 0, sizeof(_keys));
     memset(_keys_prev, 0, sizeof(_keys_prev));
     _mouseX = 0;
@@ -811,11 +863,21 @@ GameLib::~GameLib()
             _tilemaps[i].used = false;
         }
     }
-    // Free frame buffer
-    if (_framebuffer) {
-        free(_framebuffer);
-        _framebuffer = NULL;
+    // Free DIB Section resources
+    if (_memDC) {
+        if (_oldBmp) {
+            _gl_SelectObject(_memDC, _oldBmp);
+            _oldBmp = NULL;
+        }
+        if (_dibSection) {
+            _gl_DeleteObject(_dibSection);
+            _dibSection = NULL;
+        }
+        _gl_DeleteDC(_memDC);
+        _memDC = NULL;
     }
+    // Frame buffer is managed by DIB Section, no need to free separately
+    _framebuffer = NULL;
     // Destroy window
     if (_hwnd) {
         DestroyWindow(_hwnd);
@@ -923,13 +985,9 @@ LRESULT CALLBACK GameLib::_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
     case WM_PAINT: {
             PAINTSTRUCT ps;
             BeginPaint(hWnd, &ps);
-            if (self && self->_framebuffer && _gl_SetDIBitsToDevice) {
-                _gl_SetDIBitsToDevice(ps.hdc, 0, 0,
-                    self->_width, self->_height,
-                    0, 0, 0, self->_height,
-                    self->_framebuffer,
-                    (BITMAPINFO*)self->_bmi_data,
-                    DIB_RGB_COLORS);
+            if (self && self->_memDC && _gl_BitBlt) {
+                _gl_BitBlt(ps.hdc, 0, 0, self->_width, self->_height,
+                           self->_memDC, 0, 0, 0x00CC0020 /* SRCCOPY */);
             }
             EndPaint(hWnd, &ps);
         }
@@ -984,7 +1042,19 @@ int GameLib::Open(int width, int height, const char *title, bool center)
     if (_gamelib_load_apis() != 0) return -5;
 
     // Destroy existing resources first
-    if (_framebuffer) { free(_framebuffer); _framebuffer = NULL; }
+    if (_memDC) {
+        if (_oldBmp) {
+            _gl_SelectObject(_memDC, _oldBmp);
+            _oldBmp = NULL;
+        }
+        if (_dibSection) {
+            _gl_DeleteObject(_dibSection);
+            _dibSection = NULL;
+        }
+        _gl_DeleteDC(_memDC);
+        _memDC = NULL;
+    }
+    _framebuffer = NULL;
     if (_hwnd) { DestroyWindow(_hwnd); _hwnd = NULL; }
 
     if (_InitWindowClass() != 0) return -1;
@@ -995,13 +1065,35 @@ int GameLib::Open(int width, int height, const char *title, bool center)
     _closing = false;
     _active = true;
 
-    // Allocate frame buffer
-    _framebuffer = (uint32_t*)malloc(width * height * sizeof(uint32_t));
-    if (!_framebuffer) return -2;
-    memset(_framebuffer, 0, width * height * sizeof(uint32_t));
-
     // Initialize DIB info
     _InitDIBInfo(_bmi_data, width, height);
+
+    // Create memory DC
+    _memDC = _gl_CreateCompatibleDC(NULL);
+    if (!_memDC) return -2;
+
+    // Create DIB Section (frame buffer memory is managed by DIB Section)
+    void *pBits = NULL;
+    _dibSection = _gl_CreateDIBSection(_memDC, (BITMAPINFO*)_bmi_data,
+                                        DIB_RGB_COLORS, &pBits, NULL, 0);
+    if (!_dibSection || !pBits) {
+        _gl_DeleteDC(_memDC);
+        _memDC = NULL;
+        return -3;
+    }
+    _framebuffer = (uint32_t*)pBits;
+    memset(_framebuffer, 0, width * height * sizeof(uint32_t));
+
+    // Select DIB Section into memory DC
+    _oldBmp = (HBITMAP)_gl_SelectObject(_memDC, _dibSection);
+    if (!_oldBmp) {
+        _gl_DeleteObject(_dibSection);
+        _gl_DeleteDC(_memDC);
+        _dibSection = NULL;
+        _memDC = NULL;
+        _framebuffer = NULL;
+        return -4;
+    }
 
     // Calculate window size (make client area equal to width x height)
     DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
@@ -1023,7 +1115,7 @@ int GameLib::Open(int width, int height, const char *title, bool center)
     // Convert UTF-8 to wide string
     int tlen = (int)strlen(title);
     wchar_t *wtitle = (wchar_t*)malloc((tlen * 2 + 10) * sizeof(wchar_t));
-    if (!wtitle) { free(_framebuffer); _framebuffer = NULL; return -3; }
+    if (!wtitle) return -5;
     MultiByteToWideChar(CP_UTF8, 0, title, -1, wtitle, tlen * 2 + 2);
 
     HINSTANCE inst = GetModuleHandle(NULL);
@@ -1032,11 +1124,7 @@ int GameLib::Open(int width, int height, const char *title, bool center)
 
     free(wtitle);
 
-    if (!_hwnd) {
-        free(_framebuffer);
-        _framebuffer = NULL;
-        return -4;
-    }
+    if (!_hwnd) return -6;
 
     // Second adjustment after creation: ensure client area is exactly width x height
     // AdjustWindowRect may not be accurate in some DPI settings
@@ -1099,16 +1187,12 @@ bool GameLib::IsClosed() const
 //---------------------------------------------------------------------
 void GameLib::Update()
 {
-    if (!_hwnd || !_framebuffer) return;
+    if (!_hwnd || !_framebuffer || !_memDC) return;
 
-    // Draw frame buffer to window
+    // Draw frame buffer to window using BitBlt (faster than SetDIBitsToDevice)
     HDC hdc = ::GetDC(_hwnd);
     if (hdc) {
-        _gl_SetDIBitsToDevice(hdc, 0, 0, _width, _height,
-            0, 0, 0, _height,
-            _framebuffer,
-            (BITMAPINFO*)_bmi_data,
-            DIB_RGB_COLORS);
+        _gl_BitBlt(hdc, 0, 0, _width, _height, _memDC, 0, 0, 0x00CC0020 /* SRCCOPY */);
         ::ReleaseDC(_hwnd, hdc);
     }
 
@@ -1487,6 +1571,107 @@ void GameLib::DrawPrintf(int x, int y, uint32_t color, const char *fmt, ...)
     va_end(args);
     buf[sizeof(buf) - 1] = '\0';
     DrawText(x, y, buf, color);
+}
+
+
+//=====================================================================
+// GDI Text Rendering (system fonts, Chinese support)
+//=====================================================================
+
+void GameLib::DrawTextGDI(int x, int y, const char *text, uint32_t color, const char *fontName, int fontSize)
+{
+    if (!_memDC || !text) return;
+
+    // Convert UTF-8 to wide string
+    int tlen = (int)strlen(text);
+    wchar_t *wtext = (wchar_t*)malloc((tlen + 1) * sizeof(wchar_t));
+    if (!wtext) return;
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, tlen + 1);
+
+    // Convert font name to wide string
+    int flen = (int)strlen(fontName);
+    wchar_t *wfont = (wchar_t*)malloc((flen + 1) * sizeof(wchar_t));
+    if (!wfont) { free(wtext); return; }
+    MultiByteToWideChar(CP_UTF8, 0, fontName, -1, wfont, flen + 1);
+
+    // Create font
+    HFONT font = _gl_CreateFontW(
+        fontSize, 0, 0, 0, FW_NORMAL,
+        FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH,
+        wfont);
+
+    if (font) {
+        HFONT oldFont = (HFONT)_gl_SelectObject(_memDC, font);
+
+        // Set text color (convert ARGB to COLORREF: swap R and B)
+        COLORREF cref = RGB(COLOR_GET_R(color), COLOR_GET_G(color), COLOR_GET_B(color));
+        _gl_SetTextColor(_memDC, cref);
+        _gl_SetBkMode(_memDC, 1);  // TRANSPARENT
+
+        // Draw text
+        _gl_TextOutW(_memDC, x, y, wtext, wlen - 1);
+
+        // Restore old font
+        _gl_SelectObject(_memDC, oldFont);
+        _gl_DeleteObject(font);
+    }
+
+    free(wtext);
+    free(wfont);
+}
+
+void GameLib::DrawTextGDI(int x, int y, const char *text, uint32_t color, int fontSize)
+{
+    // Default font: Microsoft YaHei for Chinese support, fallback to system default
+    DrawTextGDI(x, y, text, color, "Microsoft YaHei", fontSize);
+}
+
+int GameLib::GetTextWidthGDI(const char *text, const char *fontName, int fontSize)
+{
+    if (!_memDC || !text) return 0;
+
+    // Convert UTF-8 to wide string
+    int tlen = (int)strlen(text);
+    wchar_t *wtext = (wchar_t*)malloc((tlen + 1) * sizeof(wchar_t));
+    if (!wtext) return 0;
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, tlen + 1);
+
+    // Convert font name to wide string
+    int flen = (int)strlen(fontName);
+    wchar_t *wfont = (wchar_t*)malloc((flen + 1) * sizeof(wchar_t));
+    if (!wfont) { free(wtext); return 0; }
+    MultiByteToWideChar(CP_UTF8, 0, fontName, -1, wfont, flen + 1);
+
+    // Create font
+    HFONT font = _gl_CreateFontW(
+        fontSize, 0, 0, 0, FW_NORMAL,
+        FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        ANTIALIASED_QUALITY,
+        DEFAULT_PITCH,
+        wfont);
+
+    SIZE size = {0, 0};
+    if (font) {
+        HFONT oldFont = (HFONT)_gl_SelectObject(_memDC, font);
+        _gl_GetTextExtentPoint32W(_memDC, wtext, wlen - 1, &size);
+        _gl_SelectObject(_memDC, oldFont);
+        _gl_DeleteObject(font);
+    }
+
+    free(wtext);
+    free(wfont);
+    return (int)size.cx;
+}
+
+int GameLib::GetTextHeightGDI(int fontSize)
+{
+    return fontSize;  // Approximate height
 }
 
 

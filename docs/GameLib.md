@@ -5,8 +5,8 @@
 `GameLib.h` 是一个面向初学者的 **单头文件游戏库**，基于 Win32 GDI，无需 SDL 或其他第三方库。目标用户是小朋友，用于在 Dev C++ (GCC 4.9.2) 环境下开发简单游戏（空战、俄罗斯方块、走迷宫等）。
 
 **文件位置**: `GameLib.h`
-**当前行数**: ~2108 行
-**最后修改**: 2026/04/02
+**当前行数**: ~2200 行
+**最后修改**: 2026/04/03
 
 ---
 
@@ -367,7 +367,28 @@ static bool _srandDone; // srand 是否已初始化
 - 内部使用 `vsnprintf`（1024 字节缓冲），格式化后调用 `DrawText` 绘制
 - 方便在屏幕上显示变量值、分数、调试信息等
 
-### 6.5 精灵系统
+### 6.5 GDI 文字渲染（系统字体，支持中文）
+
+#### `void DrawTextGDI(int x, int y, const char *text, uint32_t color, const char *fontName, int fontSize)`
+- 使用 GDI 系统字体渲染文字，支持中文、日文等多字节字符
+- `fontName`: 字体名称，如 "Microsoft YaHei"、"SimHei"、"Arial" 等
+- `fontSize`: 字体大小（像素）
+- 文字背景透明，支持 UTF-8 编码
+
+#### `void DrawTextGDI(int x, int y, const char *text, uint32_t color, int fontSize)`
+- 简化版本，使用默认字体 "Microsoft YaHei"（支持中文）
+- 适合快速输出中文文字
+
+#### `int GetTextWidthGDI(const char *text, const char *fontName, int fontSize)`
+- 获取文字在指定字体下的宽度（像素）
+- 用于计算文字对齐、布局等
+
+#### `int GetTextHeightGDI(int fontSize)`
+- 获取字体高度的近似值（返回 fontSize）
+
+**注意**: GDI 文字渲染使用系统字体抗锯齿，效果比内嵌 8x8 字体更平滑，但性能略低。对于大量文字或高性能需求场景，建议使用内嵌字体。
+
+### 6.6 精灵系统
 
 #### `int CreateSprite(int width, int height)`
 - 创建空白精灵，返回整数 ID（失败返回 -1）
@@ -417,7 +438,7 @@ static bool _srandDone; // srand 是否已初始化
 #### `int GetSpriteWidth(int id) const` / `int GetSpriteHeight(int id) const`
 - 获取精灵尺寸
 
-### 6.6 输入系统
+### 6.7 输入系统
 
 #### `bool IsKeyDown(int key) const`
 - 按键是否正在按下（持续按住也返回 true）
@@ -431,7 +452,7 @@ static bool _srandDone; // srand 是否已初始化
 #### `bool IsMouseDown(int button) const`
 - 鼠标按键是否按下
 
-### 6.7 声音
+### 6.8 声音
 
 #### `void PlayBeep(int frequency, int duration)`
 - Windows Beep（阻塞式，简单蜂鸣）
@@ -455,7 +476,7 @@ static bool _srandDone; // srand 是否已初始化
 #### `void StopMusic()`
 - 停止当前 MCI 背景音乐并释放资源
 
-### 6.8 工具函数（static）
+### 6.9 工具函数（static）
 
 #### `static int Random(int minVal, int maxVal)`
 - 返回 [minVal, maxVal] 范围内的随机整数
@@ -473,7 +494,7 @@ static bool _srandDone; // srand 是否已初始化
 #### `static float Distance(int x1, int y1, int x2, int y2)`
 - 两点距离（浮点，使用 sqrtf）
 
-### 6.9 网格辅助
+### 6.10 网格辅助
 
 #### `void DrawGrid(int x, int y, int rows, int cols, int cellSize, uint32_t color)`
 - 绘制网格线
@@ -481,7 +502,7 @@ static bool _srandDone; // srand 是否已初始化
 #### `void FillCell(int gridX, int gridY, int row, int col, int cellSize, uint32_t color)`
 - 填充网格中的一个单元格（留 1 像素内边距避免覆盖网格线）
 
-### 6.10 Tilemap 系统
+### 6.11 Tilemap 系统
 
 #### `int CreateTilemap(int cols, int rows, int tileSize, int tilesetId)`
 - 创建瓦片地图，返回整数 ID（失败返回 -1）
@@ -611,8 +632,7 @@ int main() {
 2. **更多图元** — 椭圆、圆角矩形、贝塞尔曲线等
 3. **简单动画系统** — 帧动画支持（sprite sheet 自动切帧）
 4. **音频增强** — 多通道音效、音量控制
-5. **文字增强** — 支持更多字体大小、中文显示
-6. **示例游戏 Demo** — 编写打砖块、太空射击等示例
+5. **示例游戏 Demo** — 编写打砖块、太空射击等示例
 
 ---
 
@@ -650,3 +670,7 @@ int main() {
 | `DrawTilemap` 预计算可见瓦片范围 | 大地图（如 200×50）时只遍历屏幕内的瓦片，保证绘制性能 |
 | `DrawTilemap` 三路循环展开 | 与 `DrawSpriteEx` 一致的优化策略，避免逐像素 flag 分支 |
 | Tilemap 不管理 tileset 精灵的生命周期 | `FreeTilemap` 只释放 tiles 数组，tileset 精灵由用户通过 `FreeSprite` 控制 |
+| DIB Section + 常备 DC | 创建 `CreateDIBSection` 并选入常备 `_memDC`，帧缓冲内存由 DIB Section 管理，支持 GDI 文字输出 |
+| `DrawTextGDI` 动态创建字体 | 每次调用创建/销毁字体，适合少量文字；若需大量文字可后续添加字体缓存 |
+| `BitBlt` 替代 `SetDIBitsToDevice` | DIB Section 场景下 `BitBlt` 更高效，且代码更简洁 |
+| GDI 文字函数动态加载 | 所有 GDI 函数通过 `LoadLibrary` + `GetProcAddress` 加载，保持只需 `-mwindows` 编译 |

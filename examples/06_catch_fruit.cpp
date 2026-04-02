@@ -1,9 +1,9 @@
 // 06_catch_fruit.cpp - Catch the Fruit
 //
-// 水果从天上掉下来，左右移动篮子接住它们。
-// 学习：Random, RectOverlap, 计分, 游戏状态
+// Fruits fall from the sky, move the basket left/right to catch them.
+// Learn: Random, RectOverlap, scoring, game state
 //
-// 编译: g++ -o 06_catch_fruit.exe 06_catch_fruit.cpp -mwindows
+// Compile: g++ -o 06_catch_fruit.exe 06_catch_fruit.cpp -mwindows
 
 #include "../GameLib.h"
 
@@ -21,12 +21,12 @@ int main()
     GameLib game;
     game.Open(640, 480, "06 - Catch Fruit", true);
 
-    // 篮子
+    // Basket
     int basketX = 280;
     int basketW = 80, basketH = 20;
     int basketY = 450;
 
-    // 水果
+    // Fruits
     Fruit fruits[MAX_FRUITS];
     for (int i = 0; i < MAX_FRUITS; i++)
         fruits[i].active = false;
@@ -42,15 +42,15 @@ int main()
         if (game.IsKeyPressed(KEY_ESCAPE)) break;
 
         if (!gameOver) {
-            // 篮子移动
+            // Basket movement
             if (game.IsKeyDown(KEY_LEFT))  basketX -= 6;
             if (game.IsKeyDown(KEY_RIGHT)) basketX += 6;
             if (basketX < 0) basketX = 0;
             if (basketX + basketW > game.GetWidth()) basketX = game.GetWidth() - basketW;
 
-            // 生成水果
+            // Spawn fruit
             spawnTimer++;
-            int spawnRate = 30 - score / 5;  // 分数越高掉得越快
+            int spawnRate = 30 - score / 5;  // Higher score = faster spawn
             if (spawnRate < 8) spawnRate = 8;
 
             if (spawnTimer >= spawnRate) {
@@ -67,20 +67,20 @@ int main()
                 }
             }
 
-            // 更新水果
+            // Update fruits
             for (int i = 0; i < MAX_FRUITS; i++) {
                 if (!fruits[i].active) continue;
 
                 fruits[i].y += fruits[i].speed;
 
-                // 接住了？
+                // Caught?
                 if (GameLib::RectOverlap(
                         fruits[i].x - 5, fruits[i].y - 5, 10, 10,
                         basketX, basketY, basketW, basketH)) {
                     fruits[i].active = false;
                     score++;
                 }
-                // 掉到底了？
+                // Missed?
                 else if (fruits[i].y > game.GetHeight()) {
                     fruits[i].active = false;
                     missed++;
@@ -89,7 +89,7 @@ int main()
                 }
             }
         } else {
-            // Game Over 时按 R 重新开始
+            // Press R to restart when Game Over
             if (game.IsKeyPressed(KEY_R)) {
                 score = 0;
                 missed = 0;
@@ -99,16 +99,16 @@ int main()
             }
         }
 
-        // --- 绘制 ---
+        // --- Drawing ---
         game.Clear(COLOR_DARK_BLUE);
 
-        // 水果 (小圆)
+        // Fruits (small circles)
         for (int i = 0; i < MAX_FRUITS; i++) {
             if (!fruits[i].active) continue;
             game.FillCircle(fruits[i].x, fruits[i].y, 8, fruits[i].color);
         }
 
-        // 篮子
+        // Basket
         game.FillRect(basketX, basketY, basketW, basketH, COLOR_BROWN);
         game.DrawRect(basketX, basketY, basketW, basketH, COLOR_GOLD);
 

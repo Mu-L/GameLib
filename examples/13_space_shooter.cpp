@@ -1,15 +1,16 @@
 // 13_space_shooter.cpp - Space Shooter
 //
-// 综合性最强的示例：太空射击游戏。
-// 包含：精灵(代码生成)、滚动星空背景、玩家飞船、敌机编队、
-//       子弹系统、碰撞检测、爆炸效果、计分、难度递增。
-// 学习：综合运用 GameLib 所有核心 API
+// The most comprehensive example: a space shooting game.
+// Features: sprites (code generated), scrolling starfield background, player ship,
+//            enemy formations, bullet system, collision detection, explosions,
+//            scoring, difficulty scaling.
+// Learn: comprehensive use of all core GameLib APIs
 //
-// 编译: g++ -o 13_space_shooter.exe 13_space_shooter.cpp -mwindows
+// Compile: g++ -o 13_space_shooter.exe 13_space_shooter.cpp -mwindows
 
 #include "../GameLib.h"
 
-// ============ 常量 ============
+// ============ Constants ============
 
 #define W 480
 #define H 640
@@ -20,7 +21,7 @@
 #define MAX_EXPLOSIONS 15
 #define MAX_ENEMY_BULLETS 20
 
-// ============ 数据结构 ============
+// ============ Data Structures ============
 
 struct Star   { float x, y, speed; uint32_t color; };
 struct Bullet { float x, y; bool active; };
@@ -34,7 +35,7 @@ struct Explosion {
 
 struct EnemyBullet { float x, y, vy; bool active; };
 
-// ============ 精灵创建 (代码生成) ============
+// ============ Sprite Creation (code generated) ============
 
 int CreatePlayerSprite(GameLib &game)
 {
@@ -44,11 +45,11 @@ int CreatePlayerSprite(GameLib &game)
         for (int x = 0; x < 24; x++)
             game.SetSpritePixel(id, x, y, 0);
 
-    // 机身
+    // Body
     for (int y = 4; y < 20; y++)
         for (int x = 9; x < 15; x++)
             game.SetSpritePixel(id, x, y, COLOR_CYAN);
-    // 机头
+    // Nose
     for (int x = 10; x < 14; x++) {
         game.SetSpritePixel(id, x, 2, COLOR_WHITE);
         game.SetSpritePixel(id, x, 3, COLOR_WHITE);
@@ -57,14 +58,14 @@ int CreatePlayerSprite(GameLib &game)
     game.SetSpritePixel(id, 12, 0, COLOR_WHITE);
     game.SetSpritePixel(id, 11, 1, COLOR_WHITE);
     game.SetSpritePixel(id, 12, 1, COLOR_WHITE);
-    // 翼
+    // Wings
     for (int x = 2; x < 9; x++)
         for (int y = 13; y < 17; y++)
             game.SetSpritePixel(id, x, y, COLOR_GRAY);
     for (int x = 15; x < 22; x++)
         for (int y = 13; y < 17; y++)
             game.SetSpritePixel(id, x, y, COLOR_GRAY);
-    // 引擎
+    // Engine
     game.SetSpritePixel(id, 11, 20, COLOR_ORANGE);
     game.SetSpritePixel(id, 12, 20, COLOR_ORANGE);
     game.SetSpritePixel(id, 11, 21, COLOR_YELLOW);
@@ -81,7 +82,7 @@ int CreateEnemySprite(GameLib &game, uint32_t bodyColor)
         for (int x = 0; x < 20; x++)
             game.SetSpritePixel(id, x, y, 0);
 
-    // 身体 (倒三角)
+    // Body (inverted triangle)
     for (int y = 2; y < 14; y++) {
         int half = (14 - y);
         int cx = 10;
@@ -89,12 +90,12 @@ int CreateEnemySprite(GameLib &game, uint32_t bodyColor)
             if (x >= 0 && x < 20)
                 game.SetSpritePixel(id, x, y, bodyColor);
     }
-    // 翼尖
+    // Wing tips
     for (int y = 3; y < 8; y++) {
         game.SetSpritePixel(id, 1, y, COLOR_DARK_GRAY);
         game.SetSpritePixel(id, 18, y, COLOR_DARK_GRAY);
     }
-    // 驾驶舱
+    // Cockpit
     game.SetSpritePixel(id, 9,  5, COLOR_YELLOW);
     game.SetSpritePixel(id, 10, 5, COLOR_YELLOW);
     game.SetSpritePixel(id, 9,  6, COLOR_YELLOW);
@@ -110,12 +111,12 @@ int main()
     GameLib game;
     game.Open(W, H, "13 - Space Shooter", true);
 
-    // 精灵
+    // Sprites
     int sprPlayer = CreatePlayerSprite(game);
     int sprEnemy1 = CreateEnemySprite(game, COLOR_RED);
     int sprEnemy2 = CreateEnemySprite(game, COLOR_MAGENTA);
 
-    // 星空
+    // Starfield
     Star stars[MAX_STARS];
     for (int i = 0; i < MAX_STARS; i++) {
         stars[i].x = (float)GameLib::Random(0, W - 1);
@@ -126,24 +127,24 @@ int main()
         stars[i].color = COLOR_RGB(b, b, b);
     }
 
-    // 玩家
+    // Player
     float px = W / 2.0f - 12, py = H - 60.0f;
 
-    // 子弹
+    // Bullets
     Bullet bullets[MAX_BULLETS];
     for (int i = 0; i < MAX_BULLETS; i++) bullets[i].active = false;
     int shootTimer = 0;
 
-    // 敌人
+    // Enemies
     Enemy enemies[MAX_ENEMIES];
     for (int i = 0; i < MAX_ENEMIES; i++) enemies[i].active = false;
     int spawnTimer = 0;
 
-    // 敌人子弹
+    // Enemy bullets
     EnemyBullet eBullets[MAX_ENEMY_BULLETS];
     for (int i = 0; i < MAX_ENEMY_BULLETS; i++) eBullets[i].active = false;
 
-    // 爆炸
+    // Explosions
     Explosion explosions[MAX_EXPLOSIONS];
     for (int i = 0; i < MAX_EXPLOSIONS; i++) explosions[i].active = false;
 
@@ -152,13 +153,13 @@ int main()
     int level = 1;
     int killCount = 0;
     bool gameOver = false;
-    int invincible = 0; // 无敌帧 (被击中后闪烁)
+    int invincible = 0; // invincibility frames (blink after being hit)
 
     while (!game.IsClosed()) {
         if (game.IsKeyPressed(KEY_ESCAPE)) break;
 
         if (!gameOver) {
-            // --- 玩家移动 ---
+            // --- Player movement ---
             float spd = 5.0f;
             if (game.IsKeyDown(KEY_LEFT))  px -= spd;
             if (game.IsKeyDown(KEY_RIGHT)) px += spd;
@@ -169,7 +170,7 @@ int main()
             if (py < 0) py = 0;
             if (py > H - 24) py = (float)(H - 24);
 
-            // --- 自动射击 (按住空格) ---
+            // --- Auto fire (hold space) ---
             if (game.IsKeyDown(KEY_SPACE)) {
                 shootTimer++;
                 if (shootTimer >= 6) {
@@ -184,17 +185,17 @@ int main()
                     }
                 }
             } else {
-                shootTimer = 5; // 松开后下次按立即发射
+                shootTimer = 5; // next press fires immediately
             }
 
-            // --- 更新子弹 ---
+            // --- Update bullets ---
             for (int i = 0; i < MAX_BULLETS; i++) {
                 if (!bullets[i].active) continue;
                 bullets[i].y -= 10;
                 if (bullets[i].y < -10) bullets[i].active = false;
             }
 
-            // --- 生成敌人 ---
+            // --- Spawn enemies ---
             spawnTimer++;
             int rate = 50 - level * 5;
             if (rate < 15) rate = 15;
@@ -214,20 +215,20 @@ int main()
                 }
             }
 
-            // --- 更新敌人 ---
+            // --- Update enemies ---
             for (int i = 0; i < MAX_ENEMIES; i++) {
                 if (!enemies[i].active) continue;
                 enemies[i].x += enemies[i].vx;
                 enemies[i].y += enemies[i].vy;
 
-                // 左右反弹
+                // Bounce off left/right
                 if (enemies[i].x < 0 || enemies[i].x > W - 20)
                     enemies[i].vx = -enemies[i].vx;
 
-                // 飞出屏幕
+                // Off screen
                 if (enemies[i].y > H + 20) enemies[i].active = false;
 
-                // 敌人射击 (随机)
+                // Enemy shooting (random)
                 if (GameLib::Random(0, 200) < 1 + level) {
                     for (int j = 0; j < MAX_ENEMY_BULLETS; j++) {
                         if (!eBullets[j].active) {
@@ -241,14 +242,14 @@ int main()
                 }
             }
 
-            // --- 更新敌人子弹 ---
+            // --- Update enemy bullets ---
             for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
                 if (!eBullets[i].active) continue;
                 eBullets[i].y += eBullets[i].vy;
                 if (eBullets[i].y > H + 10) eBullets[i].active = false;
             }
 
-            // --- 碰撞: 玩家子弹 vs 敌人 ---
+            // --- Collision: player bullets vs enemies ---
             for (int i = 0; i < MAX_BULLETS; i++) {
                 if (!bullets[i].active) continue;
                 for (int j = 0; j < MAX_ENEMIES; j++) {
@@ -262,12 +263,12 @@ int main()
                             enemies[j].active = false;
                             score += (enemies[j].type + 1) * 100;
                             killCount++;
-                            // 升级
+                            // Level up
                             if (killCount >= 10 + level * 5) {
                                 level++;
                                 killCount = 0;
                             }
-                            // 爆炸效果
+                            // Explosion effect
                             for (int k = 0; k < MAX_EXPLOSIONS; k++) {
                                 if (!explosions[k].active) {
                                     explosions[k].active = true;
@@ -283,7 +284,7 @@ int main()
                 }
             }
 
-            // --- 碰撞: 敌人子弹 vs 玩家 ---
+            // --- Collision: enemy bullets vs player ---
             if (invincible > 0) {
                 invincible--;
             } else {
@@ -294,13 +295,13 @@ int main()
                             (int)px + 4, (int)py + 2, 16, 20)) {
                         eBullets[i].active = false;
                         lives--;
-                        invincible = 90; // 1.5 秒无敌
+                        invincible = 90; // 1.5 seconds invincibility
                         if (lives <= 0) gameOver = true;
                         break;
                     }
                 }
 
-                // --- 碰撞: 敌机 vs 玩家 ---
+                // --- Collision: enemies vs player ---
                 for (int i = 0; i < MAX_ENEMIES; i++) {
                     if (!enemies[i].active) continue;
                     if (GameLib::RectOverlap(
@@ -315,7 +316,7 @@ int main()
                 }
             }
 
-            // --- 更新爆炸 ---
+            // --- Update explosions ---
             for (int i = 0; i < MAX_EXPLOSIONS; i++) {
                 if (!explosions[i].active) continue;
                 explosions[i].timer--;
@@ -323,7 +324,7 @@ int main()
             }
 
         } else {
-            // 重新开始
+            // Restart
             if (game.IsKeyPressed(KEY_R)) {
                 px = W / 2.0f - 12; py = H - 60.0f;
                 for (int i = 0; i < MAX_BULLETS; i++) bullets[i].active = false;
@@ -335,7 +336,7 @@ int main()
             }
         }
 
-        // --- 更新星空 ---
+        // --- Update starfield ---
         for (int i = 0; i < MAX_STARS; i++) {
             stars[i].y += stars[i].speed;
             if (stars[i].y > H) {
@@ -344,33 +345,33 @@ int main()
             }
         }
 
-        // ============ 绘制 ============
+        // ============ Drawing ============
         game.Clear(COLOR_BLACK);
 
-        // 星空
+        // Starfield
         for (int i = 0; i < MAX_STARS; i++)
             game.SetPixel((int)stars[i].x, (int)stars[i].y, stars[i].color);
 
-        // 玩家子弹
+        // Player bullets
         for (int i = 0; i < MAX_BULLETS; i++) {
             if (!bullets[i].active) continue;
             game.FillRect((int)bullets[i].x, (int)bullets[i].y - 4, 3, 8, COLOR_YELLOW);
         }
 
-        // 敌人子弹
+        // Enemy bullets
         for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
             if (!eBullets[i].active) continue;
             game.FillRect((int)eBullets[i].x - 1, (int)eBullets[i].y, 3, 6, COLOR_RED);
         }
 
-        // 敌人
+        // Enemies
         for (int i = 0; i < MAX_ENEMIES; i++) {
             if (!enemies[i].active) continue;
             int spr = enemies[i].type == 0 ? sprEnemy1 : sprEnemy2;
             game.DrawSprite(spr, (int)enemies[i].x, (int)enemies[i].y);
         }
 
-        // 爆炸
+        // Explosions
         for (int i = 0; i < MAX_EXPLOSIONS; i++) {
             if (!explosions[i].active) continue;
             int r = 15 - explosions[i].timer + 5;
@@ -383,7 +384,7 @@ int main()
                 game.FillCircle((int)explosions[i].x, (int)explosions[i].y, r - 3, COLOR_RED);
         }
 
-        // 玩家 (无敌时闪烁)
+        // Player (blink when invincible)
         if (invincible == 0 || (invincible / 4) % 2 == 0)
             game.DrawSprite(sprPlayer, (int)px, (int)py);
 

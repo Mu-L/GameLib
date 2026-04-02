@@ -1,9 +1,9 @@
 // 12_breakout.cpp - Breakout
 //
-// 经典打砖块：挡板反弹球，打掉所有砖块即获胜。
-// 学习：碰撞检测深度运用、多对象管理、游戏状态
+// Classic Breakout: bounce the ball with paddle, destroy all bricks to win.
+// Learn: in-depth collision detection, multi-object management, game state
 //
-// 编译: g++ -o 12_breakout.exe 12_breakout.cpp -mwindows
+// Compile: g++ -o 12_breakout.exe 12_breakout.cpp -mwindows
 
 #include "../GameLib.h"
 #include <math.h>
@@ -21,15 +21,15 @@ int main()
     GameLib game;
     game.Open(640, 480, "12 - Breakout", true);
 
-    // 砖块
+    // Bricks
     bool bricks[BRICK_ROWS][BRICK_COLS];
     uint32_t brickColors[] = {COLOR_RED, COLOR_ORANGE, COLOR_YELLOW, COLOR_GREEN, COLOR_CYAN, COLOR_PURPLE};
 
-    // 挡板
+    // Paddle
     int padW = 80, padH = 12;
     int padX = 280, padY = 450;
 
-    // 球
+    // Ball
     float ballX = 320, ballY = 430;
     float ballVX = 3.0f, ballVY = -4.0f;
     int ballR = 5;
@@ -37,11 +37,11 @@ int main()
     int score = 0;
     int lives = 3;
     int totalBricks = 0;
-    bool started = false;  // 球是否发射了
+    bool started = false;  // ball launched?
     bool gameOver = false;
     bool gameWin = false;
 
-    // 初始化砖块
+    // Initialize bricks
     for (int r = 0; r < BRICK_ROWS; r++)
         for (int c = 0; c < BRICK_COLS; c++)
             bricks[r][c] = true;
@@ -51,13 +51,13 @@ int main()
         if (game.IsKeyPressed(KEY_ESCAPE)) break;
 
         if (!gameOver && !gameWin) {
-            // 挡板移动
+            // Paddle movement
             if (game.IsKeyDown(KEY_LEFT))  padX -= 6;
             if (game.IsKeyDown(KEY_RIGHT)) padX += 6;
             if (padX < 0) padX = 0;
             if (padX + padW > game.GetWidth()) padX = game.GetWidth() - padW;
 
-            // 发射
+            // Launch
             if (!started) {
                 ballX = (float)(padX + padW / 2);
                 ballY = (float)(padY - ballR - 1);
@@ -67,18 +67,18 @@ int main()
                     ballVY = -4.0f;
                 }
             } else {
-                // 移动球
+                // Move ball
                 ballX += ballVX;
                 ballY += ballVY;
 
-                // 左右墙壁
+                // Left/right walls
                 if (ballX - ballR < 0) { ballX = (float)ballR; ballVX = -ballVX; }
                 if (ballX + ballR > game.GetWidth()) { ballX = (float)(game.GetWidth() - ballR); ballVX = -ballVX; }
 
-                // 顶部
+                // Top
                 if (ballY - ballR < 0) { ballY = (float)ballR; ballVY = -ballVY; }
 
-                // 底部 (丢球)
+                // Bottom (lose ball)
                 if (ballY + ballR > game.GetHeight()) {
                     lives--;
                     if (lives <= 0) {
@@ -88,18 +88,18 @@ int main()
                     }
                 }
 
-                // 挡板碰撞
+                // Paddle collision
                 if (ballVY > 0 &&
                     ballX + ballR > padX && ballX - ballR < padX + padW &&
                     ballY + ballR >= padY && ballY + ballR <= padY + padH + 4) {
                     ballVY = -ballVY;
                     ballY = (float)(padY - ballR);
-                    // 根据击中挡板的位置调整水平速度
+                    // Adjust horizontal speed based on where ball hit paddle
                     float hitPos = (ballX - padX) / padW;  // 0.0 ~ 1.0
                     ballVX = (hitPos - 0.5f) * 8.0f;
                 }
 
-                // 砖块碰撞
+                // Brick collision
                 for (int r = 0; r < BRICK_ROWS; r++) {
                     for (int c = 0; c < BRICK_COLS; c++) {
                         if (!bricks[r][c]) continue;
@@ -107,14 +107,14 @@ int main()
                         int bx = BRICK_OFFSET_X + c * (BRICK_W + BRICK_GAP);
                         int by = BRICK_OFFSET_Y + r * (BRICK_H + BRICK_GAP);
 
-                        // 球圆心 vs 砖块矩形
+                        // Ball center vs brick rectangle
                         if (ballX + ballR > bx && ballX - ballR < bx + BRICK_W &&
                             ballY + ballR > by && ballY - ballR < by + BRICK_H) {
                             bricks[r][c] = false;
                             totalBricks--;
-                            score += 10 * (BRICK_ROWS - r);  // 上排分更高
+                            score += 10 * (BRICK_ROWS - r);  // top rows score higher
 
-                            // 简易反弹方向判断
+                            // Simple bounce direction detection
                             float overlapLeft   = (ballX + ballR) - bx;
                             float overlapRight  = (bx + BRICK_W) - (ballX - ballR);
                             float overlapTop    = (ballY + ballR) - by;
@@ -136,7 +136,7 @@ int main()
                 done_collision:;
             }
         } else {
-            // 重新开始
+            // Restart
             if (game.IsKeyPressed(KEY_R)) {
                 for (int r = 0; r < BRICK_ROWS; r++)
                     for (int c = 0; c < BRICK_COLS; c++)
@@ -151,15 +151,15 @@ int main()
             }
         }
 
-        // --- 绘制 ---
+        // --- Drawing ---
         game.Clear(COLOR_BLACK);
 
-        // 顶部信息
+        // Top info
         game.DrawPrintf(10, 10, COLOR_WHITE, "Score: %d", score);
         game.DrawPrintf(10, 25, COLOR_GREEN, "Lives: %d", lives);
         game.DrawPrintf(game.GetWidth() - 130, 10, COLOR_GRAY, "Bricks: %d", totalBricks);
 
-        // 砖块
+        // Bricks
         for (int r = 0; r < BRICK_ROWS; r++) {
             for (int c = 0; c < BRICK_COLS; c++) {
                 if (!bricks[r][c]) continue;
@@ -170,13 +170,13 @@ int main()
             }
         }
 
-        // 挡板
+        // Paddle
         game.FillRect(padX, padY, padW, padH, COLOR_WHITE);
 
-        // 球
+        // Ball
         game.FillCircle((int)ballX, (int)ballY, ballR, COLOR_WHITE);
 
-        // 提示
+        // Hint
         if (!started && !gameOver && !gameWin)
             game.DrawText(240, 420, "SPACE to launch", COLOR_YELLOW);
 

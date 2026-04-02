@@ -1,9 +1,9 @@
 // 07_shooting_stars.cpp - Simple Shooter
 //
-// 控制飞船左右移动，按空格发射子弹打掉从上方下落的目标。
-// 学习：数组管理多对象、子弹发射、碰撞销毁、IsKeyPressed
+// Control a ship to move left/right, press Space to shoot bullets at falling targets.
+// Learn: array for multiple objects, bullet firing, collision destroy, IsKeyPressed
 //
-// 编译: g++ -o 07_shooting_stars.exe 07_shooting_stars.cpp -mwindows
+// Compile: g++ -o 07_shooting_stars.exe 07_shooting_stars.cpp -mwindows
 
 #include "../GameLib.h"
 
@@ -26,16 +26,16 @@ int main()
     GameLib game;
     game.Open(640, 480, "07 - Shooting Stars", true);
 
-    // 玩家飞船
+    // Player ship
     int shipX = 300, shipY = 440;
     int shipW = 30, shipH = 20;
 
-    // 子弹
+    // Bullets
     Bullet bullets[MAX_BULLETS];
     for (int i = 0; i < MAX_BULLETS; i++)
         bullets[i].active = false;
 
-    // 敌人
+    // Enemies
     Enemy enemies[MAX_ENEMIES];
     for (int i = 0; i < MAX_ENEMIES; i++)
         enemies[i].active = false;
@@ -49,13 +49,13 @@ int main()
         if (game.IsKeyPressed(KEY_ESCAPE)) break;
 
         if (!gameOver) {
-            // 飞船移动
+            // Ship movement
             if (game.IsKeyDown(KEY_LEFT))  shipX -= 5;
             if (game.IsKeyDown(KEY_RIGHT)) shipX += 5;
             if (shipX < 0) shipX = 0;
             if (shipX + shipW > game.GetWidth()) shipX = game.GetWidth() - shipW;
 
-            // 发射子弹
+            // Fire bullet
             if (game.IsKeyPressed(KEY_SPACE)) {
                 for (int i = 0; i < MAX_BULLETS; i++) {
                     if (!bullets[i].active) {
@@ -67,7 +67,7 @@ int main()
                 }
             }
 
-            // 更新子弹
+            // Update bullets
             for (int i = 0; i < MAX_BULLETS; i++) {
                 if (!bullets[i].active) continue;
                 bullets[i].y -= 8;
@@ -75,7 +75,7 @@ int main()
                     bullets[i].active = false;
             }
 
-            // 生成敌人
+            // Spawn enemy
             spawnTimer++;
             int rate = 40 - score / 3;
             if (rate < 12) rate = 12;
@@ -92,12 +92,12 @@ int main()
                 }
             }
 
-            // 更新敌人
+            // Update enemies
             for (int i = 0; i < MAX_ENEMIES; i++) {
                 if (!enemies[i].active) continue;
                 enemies[i].y += enemies[i].speed;
 
-                // 跑出屏幕 -> 扣命
+                // Off screen -> lose life
                 if (enemies[i].y > game.GetHeight()) {
                     enemies[i].active = false;
                     lives--;
@@ -105,7 +105,7 @@ int main()
                 }
             }
 
-            // 碰撞检测: 子弹 vs 敌人
+            // Collision: bullet vs enemy
             for (int i = 0; i < MAX_BULLETS; i++) {
                 if (!bullets[i].active) continue;
                 for (int j = 0; j < MAX_ENEMIES; j++) {
@@ -121,7 +121,7 @@ int main()
                 }
             }
 
-            // 碰撞检测: 敌人 vs 飞船
+            // Collision: enemy vs ship
             for (int i = 0; i < MAX_ENEMIES; i++) {
                 if (!enemies[i].active) continue;
                 if (GameLib::RectOverlap(
@@ -142,31 +142,31 @@ int main()
             }
         }
 
-        // --- 绘制 ---
+        // --- Drawing ---
         game.Clear(COLOR_BLACK);
 
-        // 星空背景
+        // Starfield background
         for (int i = 0; i < 60; i++) {
-            // 用固定种子让星星位置每帧相同 (视觉伪随机)
+            // Use fixed seed so stars are the same each frame (visual pseudo-random)
             int sx = (i * 137 + 59) % game.GetWidth();
             int sy = (i * 251 + 31) % game.GetHeight();
             game.SetPixel(sx, sy, COLOR_WHITE);
         }
 
-        // 子弹
+        // Bullets
         for (int i = 0; i < MAX_BULLETS; i++) {
             if (!bullets[i].active) continue;
             game.FillRect(bullets[i].x - 1, bullets[i].y - 4, 3, 8, COLOR_YELLOW);
         }
 
-        // 敌人 (红色方块)
+        // Enemies (red squares)
         for (int i = 0; i < MAX_ENEMIES; i++) {
             if (!enemies[i].active) continue;
             game.FillRect(enemies[i].x, enemies[i].y, 20, 20, COLOR_RED);
             game.DrawRect(enemies[i].x, enemies[i].y, 20, 20, COLOR_ORANGE);
         }
 
-        // 飞船 (三角形)
+        // Ship (triangle)
         game.FillTriangle(
             shipX + shipW / 2, shipY - 5,
             shipX, shipY + shipH,

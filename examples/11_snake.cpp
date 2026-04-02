@@ -1,9 +1,10 @@
 // 11_snake.cpp - Snake Game
 //
-// 经典贪吃蛇：方向键控制蛇移动，吃食物变长，撞墙或撞自己就结束。
-// 学习：DrawGrid, FillCell, IsKeyPressed, 游戏状态机, 定时移动
+// Classic Snake: use arrow keys to control the snake, eat food to grow,
+// game over if you hit the wall or yourself.
+// Learn: DrawGrid, FillCell, IsKeyPressed, game state machine, timed movement
 //
-// 编译: g++ -o 11_snake.exe 11_snake.cpp -mwindows
+// Compile: g++ -o 11_snake.exe 11_snake.cpp -mwindows
 
 #include "../GameLib.h"
 
@@ -18,33 +19,33 @@ int main()
 
     int gridW = GRID_COLS * CELL_SIZE;
     int gridH = GRID_ROWS * CELL_SIZE;
-    int winW = gridW + 160;  // 右侧留信息栏
-    int winH = gridH + 40;   // 顶部留标题
+    int winW = gridW + 160;  // leave space for info panel on right
+    int winH = gridH + 40;   // leave space for title on top
     game.Open(winW, winH, "11 - Snake", true);
 
     int gridX = 10, gridY = 30;
 
-    // 蛇身 (用数组存每节的行列)
+    // Snake body (store row/col for each segment in array)
     int snakeR[MAX_SNAKE], snakeC[MAX_SNAKE];
     int snakeLen = 3;
 
-    // 初始位置
+    // Initial position
     snakeR[0] = 10; snakeC[0] = 10;
     snakeR[1] = 10; snakeC[1] = 9;
     snakeR[2] = 10; snakeC[2] = 8;
 
-    // 方向: 0=上 1=下 2=左 3=右
+    // Direction: 0=up 1=down 2=left 3=right
     int dir = 3;
     int nextDir = 3;
 
-    // 食物
+    // Food
     int foodR = 5, foodC = 15;
 
     int score = 0;
     bool gameOver = false;
     bool paused = false;
 
-    // 移动定时器
+    // Movement timer
     float moveTimer = 0;
     float moveInterval = 0.15f;
 
@@ -54,24 +55,24 @@ int main()
         float dt = game.GetDeltaTime();
 
         if (!gameOver) {
-            // 暂停
+            // Pause
             if (game.IsKeyPressed(KEY_P))
                 paused = !paused;
 
             if (!paused) {
-                // 方向输入 (不能直接反向)
+                // Direction input (cannot reverse directly)
                 if (game.IsKeyPressed(KEY_UP)    && dir != 1) nextDir = 0;
                 if (game.IsKeyPressed(KEY_DOWN)  && dir != 0) nextDir = 1;
                 if (game.IsKeyPressed(KEY_LEFT)  && dir != 3) nextDir = 2;
                 if (game.IsKeyPressed(KEY_RIGHT) && dir != 2) nextDir = 3;
 
-                // 定时移动
+                // Timed movement
                 moveTimer += dt;
                 if (moveTimer >= moveInterval) {
                     moveTimer = 0;
                     dir = nextDir;
 
-                    // 计算新头部位置
+                    // Calculate new head position
                     int newR = snakeR[0];
                     int newC = snakeC[0];
                     if (dir == 0) newR--;
@@ -79,11 +80,11 @@ int main()
                     if (dir == 2) newC--;
                     if (dir == 3) newC++;
 
-                    // 撞墙检测
+                    // Wall collision
                     if (newR < 0 || newR >= GRID_ROWS || newC < 0 || newC >= GRID_COLS) {
                         gameOver = true;
                     } else {
-                        // 撞自己检测
+                        // Self collision
                         for (int i = 0; i < snakeLen; i++) {
                             if (snakeR[i] == newR && snakeC[i] == newC) {
                                 gameOver = true;
@@ -93,27 +94,27 @@ int main()
                     }
 
                     if (!gameOver) {
-                        // 吃食物？
+                        // Eat food?
                         bool ate = (newR == foodR && newC == foodC);
 
-                        // 移动蛇身 (从尾部向前复制)
+                        // Move snake body (copy from tail forward)
                         if (!ate) {
                             for (int i = snakeLen - 1; i > 0; i--) {
                                 snakeR[i] = snakeR[i - 1];
                                 snakeC[i] = snakeC[i - 1];
                             }
                         } else {
-                            // 增长：先把所有节后移一格，空出头部
+                            // Grow: first shift all segments back, make room for head
                             if (snakeLen < MAX_SNAKE) snakeLen++;
                             for (int i = snakeLen - 1; i > 0; i--) {
                                 snakeR[i] = snakeR[i - 1];
                                 snakeC[i] = snakeC[i - 1];
                             }
                             score += 10;
-                            // 加速
+                            // Speed up
                             if (moveInterval > 0.06f) moveInterval -= 0.003f;
 
-                            // 新食物 (确保不在蛇身上)
+                            // New food (ensure not on snake)
                             bool onSnake;
                             do {
                                 foodR = GameLib::Random(0, GRID_ROWS - 1);
@@ -146,25 +147,25 @@ int main()
             }
         }
 
-        // --- 绘制 ---
+        // --- Drawing ---
         game.Clear(COLOR_BLACK);
 
-        // 标题
+        // Title
         game.DrawTextScale(gridX, 5, "SNAKE", COLOR_GREEN, 2);
 
-        // 网格
+        // Grid
         game.DrawGrid(gridX, gridY, GRID_ROWS, GRID_COLS, CELL_SIZE, COLOR_DARK_GRAY);
 
-        // 食物 (红色)
+        // Food (red)
         game.FillCell(gridX, gridY, foodR, foodC, CELL_SIZE, COLOR_RED);
 
-        // 蛇身
+        // Snake body
         for (int i = 0; i < snakeLen; i++) {
             uint32_t c = (i == 0) ? COLOR_GREEN : COLOR_DARK_GREEN;
             game.FillCell(gridX, gridY, snakeR[i], snakeC[i], CELL_SIZE, c);
         }
 
-        // 右侧信息栏
+        // Right info panel
         int infoX = gridX + gridW + 15;
         game.DrawText(infoX, 40, "Score:", COLOR_WHITE);
         game.DrawNumber(infoX, 55, score, COLOR_GOLD);
