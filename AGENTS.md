@@ -81,4 +81,4 @@ g++ -o output.exe source.cpp -mwindows
 - `GameLib.SDL.h` 是独立 SDL 产品线，不替代 `GameLib.h` 的 Win32 零依赖主线；修改时不要把两者的约束混为一谈。
 - 先阅读 `docs/GameLib.SDL.md`，确认 SDL 版的目标平台、可选依赖、兼容边界和当前实现决策。
 - 修改 `GameLib.SDL.h` 时优先保持 `GameLib` 风格 API 与软件 framebuffer 语义不变。
-- 修改后优先用 `tests/sdldemo1.cpp` ~ `tests/sdldemo5.cpp` 做回归验证，分别覆盖基础绘制、字体、音频与真实资产 Tilemap 路径。
+- 修改后优先用 `tests/sdldemo1.cpp` ~ `tests/sdldemo6.cpp` 做回归验证，分别覆盖基础绘制、字体、音频、真实资产 Tilemap 与完整游戏循环路径。
