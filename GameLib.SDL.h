@@ -339,6 +339,8 @@ private:
     void _DrawSpriteAreaScaled(int id, int x, int y, int sx, int sy, int sw, int sh,
                                int dw, int dh, int flags);
     int _AllocTilemapSlot();
+    int _GetTilesetTileCount(int tilesetId, int tileSize) const;
+    bool _IsValidTileId(int mapId, int tileId) const;
     bool _EnsureImageReady();
     bool _EnsureTtfReady();
     bool _EnsureMixerReady();
@@ -2816,12 +2818,35 @@ int GameLib::_AllocTilemapSlot()
     return (int)(_tilemaps.size() - 1);
 }
 
+int GameLib::_GetTilesetTileCount(int tilesetId, int tileSize) const
+{
+    if (tileSize <= 0) return 0;
+    if (tilesetId < 0 || tilesetId >= (int)_sprites.size()) return 0;
+    if (!_sprites[tilesetId].used) return 0;
+
+    int cols = _sprites[tilesetId].width / tileSize;
+    int rows = _sprites[tilesetId].height / tileSize;
+    if (cols <= 0 || rows <= 0) return 0;
+    return cols * rows;
+}
+
+bool GameLib::_IsValidTileId(int mapId, int tileId) const
+{
+    if (tileId == -1) return true;
+    if (mapId < 0 || mapId >= (int)_tilemaps.size()) return false;
+    if (!_tilemaps[mapId].used) return false;
+    int tileCount = _GetTilesetTileCount(_tilemaps[mapId].tilesetId, _tilemaps[mapId].tileSize);
+    return tileId >= 0 && tileId < tileCount;
+}
+
 int GameLib::CreateTilemap(int cols, int rows, int tileSize, int tilesetId)
 {
     if (cols <= 0 || rows <= 0 || tileSize <= 0) return -1;
     if (tilesetId < 0 || tilesetId >= (int)_sprites.size()) return -1;
     if (!_sprites[tilesetId].used) return -1;
     if (cols > 4096 || rows > 4096) return -1;
+    int tileCount = _GetTilesetTileCount(tilesetId, tileSize);
+    if (tileCount <= 0) return -1;
 
     int id = _AllocTilemapSlot();
     int *tiles = (int*)malloc((size_t)cols * rows * sizeof(int));
@@ -2922,6 +2947,13 @@ int GameLib::LoadTilemap(const char *filename, int tilesetId)
             SDL_RWclose(rw);
             return -1;
         }
+        for (int col = 0; col < count; col++) {
+            if (!_IsValidTileId(mapId, rowPtr[col])) {
+                FreeTilemap(mapId);
+                SDL_RWclose(rw);
+                return -1;
+            }
+        }
     }
 
     SDL_RWclose(rw);
@@ -2945,6 +2977,7 @@ void GameLib::SetTile(int mapId, int col, int row, int tileId)
     if (!_tilemaps[mapId].used) return;
     if (col < 0 || col >= _tilemaps[mapId].cols) return;
     if (row < 0 || row >= _tilemaps[mapId].rows) return;
+    if (!_IsValidTileId(mapId, tileId)) return;
     _tilemaps[mapId].tiles[row * _tilemaps[mapId].cols + col] = tileId;
 }
 
@@ -3002,6 +3035,7 @@ void GameLib::FillTileRect(int mapId, int col, int row, int cols, int rows, int 
     if (mapId < 0 || mapId >= (int)_tilemaps.size()) return;
     if (!_tilemaps[mapId].used) return;
     if (cols <= 0 || rows <= 0) return;
+    if (!_IsValidTileId(mapId, tileId)) return;
 
     GameTilemap &tm = _tilemaps[mapId];
     int col0 = col;
@@ -3027,6 +3061,7 @@ void GameLib::ClearTilemap(int mapId, int tileId)
 {
     if (mapId < 0 || mapId >= (int)_tilemaps.size()) return;
     if (!_tilemaps[mapId].used) return;
+    if (!_IsValidTileId(mapId, tileId)) return;
 
     GameTilemap &tm = _tilemaps[mapId];
     int count = tm.cols * tm.rows;
@@ -3048,7 +3083,8 @@ void GameLib::DrawTilemap(int mapId, int x, int y, int flags)
     GameSprite &tset = _sprites[tsId];
     int ts = tm.tileSize;
     int tsCols = tm.tilesetCols;
-    if (tsCols <= 0) return;
+    int tileCount = _GetTilesetTileCount(tsId, ts);
+    if (tsCols <= 0 || tileCount <= 0) return;
 
     int col0 = (-x) / ts;
     int row0 = (-y) / ts;
@@ -3067,7 +3103,7 @@ void GameLib::DrawTilemap(int mapId, int x, int y, int flags)
     for (int r = row0; r < row1; r++) {
         for (int c = col0; c < col1; c++) {
             int tid = tm.tiles[r * tm.cols + c];
-            if (tid < 0) continue;
+            if (tid < 0 || tid >= tileCount) continue;
 
             int srcCol = tid % tsCols;
             int srcRow = tid / tsCols;

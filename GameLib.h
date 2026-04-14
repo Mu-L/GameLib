@@ -437,6 +437,8 @@ private:
     static int _InitWindowClass();
     void _DispatchMessages();
     void _InitDIBInfo(void *ptr, int width, int height);
+    void _DestroyGraphicsResources();
+    void _DestroyTimingResources();
     void _UpdateTitleFps();
 
     // internal pixel drawing (no bounds check, for fast drawing after clipping)
@@ -451,6 +453,8 @@ private:
 
     // internal tilemap management
     int _AllocTilemapSlot();
+    int _GetTilesetTileCount(int tilesetId, int tileSize) const;
+    bool _IsValidTileId(int mapId, int tileId) const;
 
 private:
     // window state
@@ -494,6 +498,7 @@ private:
     double _fpsAccum;
     HANDLE _timerEvent;     // event signaled by multimedia timer
     UINT   _timerId;        // multimedia timer ID (from timeSetEvent)
+    bool _timerPeriodActive;
 
     // sprite storage
     struct GameSprite { int width, height; uint32_t *pixels; uint32_t colorKey; bool used; };
@@ -514,6 +519,7 @@ private:
     bool _musicPlaying;
     bool _musicLoop;
     bool _musicIsMidi;
+    std::wstring _musicAlias;
 
     // random seed initialized flag
     static bool _srandDone;
@@ -794,8 +800,8 @@ static int _gamelib_load_apis()
     return 0;
 }
 
-static bool _gamelib_mci_play_music_alias(HWND callbackWindow, bool isMidi, bool loop);
-static void _gamelib_close_music_alias();
+static bool _gamelib_mci_play_music_alias(const wchar_t *alias, HWND callbackWindow, bool isMidi, bool loop);
+static void _gamelib_close_music_alias(const wchar_t *alias);
 static wchar_t *_gamelib_utf8_to_wide(const char *text, int *outLen);
 
 
@@ -1011,10 +1017,23 @@ GameLib::GameLib()
     _fpsAccum = 0.0;
     _timerEvent = NULL;
     _timerId = 0;
+    _timerPeriodActive = false;
     memset(_bmi_data, 0, sizeof(_bmi_data));
     _musicPlaying = false;
     _musicLoop = false;
     _musicIsMidi = false;
+    {
+        char aliasBuffer[64];
+        unsigned long long aliasValue = (unsigned long long)(uintptr_t)this;
+        snprintf(aliasBuffer, sizeof(aliasBuffer), "gamelib_music_%llu", aliasValue);
+        wchar_t *wideAlias = _gamelib_utf8_to_wide(aliasBuffer, NULL);
+        if (wideAlias) {
+            _musicAlias = wideAlias;
+            free(wideAlias);
+        } else {
+            _musicAlias = L"gamelib_music";
+        }
+    }
     if (!_srandDone) {
         srand((unsigned int)time(NULL));
         _srandDone = true;
@@ -1029,17 +1048,64 @@ GameLib::GameLib()
 }
 
 
+void GameLib::_DestroyGraphicsResources()
+{
+    if (_memDC) {
+        if (_oldBmp && _gl_SelectObject) {
+            _gl_SelectObject(_memDC, _oldBmp);
+            _oldBmp = NULL;
+        }
+        if (_dibSection && _gl_DeleteObject) {
+            _gl_DeleteObject(_dibSection);
+            _dibSection = NULL;
+        }
+        if (_gl_DeleteDC) {
+            _gl_DeleteDC(_memDC);
+        }
+        _memDC = NULL;
+    }
+    _framebuffer = NULL;
+}
+
+
+void GameLib::_DestroyTimingResources()
+{
+    if (_timerId && _gl_timeKillEvent) {
+        _gl_timeKillEvent(_timerId);
+        _timerId = 0;
+    }
+    if (_timerEvent) {
+        CloseHandle(_timerEvent);
+        _timerEvent = NULL;
+    }
+    if (_timerPeriodActive && _gl_timeEndPeriod) {
+        _gl_timeEndPeriod(1);
+        _timerPeriodActive = false;
+    }
+    _timeStartCounter = 0;
+    _timePrevCounter = 0;
+    _fpsTimeCounter = 0;
+    _frameStartCounter = 0;
+    _perfFrequency = 0;
+    _deltaTime = 0.0;
+    _fps = 0.0;
+    _fpsAccum = 0.0;
+}
+
+
 //---------------------------------------------------------------------
 // Destructor
 //---------------------------------------------------------------------
 GameLib::~GameLib()
 {
+    StopWAV();
+
     // Stop music
     if ((_musicPlaying || _musicIsMidi) && _gl_mciSendStringW) {
         _musicPlaying = false;
         _musicLoop = false;
         _musicIsMidi = false;
-        _gamelib_close_music_alias();
+        _gamelib_close_music_alias(_musicAlias.c_str());
     }
     // Free all sprites
     for (size_t i = 0; i < _sprites.size(); i++) {
@@ -1058,39 +1124,14 @@ GameLib::~GameLib()
         }
     }
     // Free DIB Section resources
-    if (_memDC) {
-        if (_oldBmp && _gl_SelectObject) {
-            _gl_SelectObject(_memDC, _oldBmp);
-            _oldBmp = NULL;
-        }
-        if (_dibSection && _gl_DeleteObject) {
-            _gl_DeleteObject(_dibSection);
-            _dibSection = NULL;
-        }
-        if (_gl_DeleteDC) {
-            _gl_DeleteDC(_memDC);
-        }
-        _memDC = NULL;
-    }
-    // Frame buffer is managed by DIB Section, no need to free separately
-    _framebuffer = NULL;
+    _DestroyGraphicsResources();
     // Destroy window
     if (_hwnd) {
         DestroyWindow(_hwnd);
         _hwnd = NULL;
     }
     // Clean up multimedia timer
-    if (_timerId && _gl_timeKillEvent) {
-        _gl_timeKillEvent(_timerId);
-        _timerId = 0;
-    }
-    if (_timerEvent) {
-        CloseHandle(_timerEvent);
-        _timerEvent = NULL;
-    }
-    if (_gl_timeEndPeriod) {
-        _gl_timeEndPeriod(1);
-    }
+    _DestroyTimingResources();
 }
 
 
@@ -1159,9 +1200,12 @@ LRESULT CALLBACK GameLib::_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 
         if (wParam == MCI_NOTIFY_SUCCESSFUL) {
             if (self->_musicLoop) {
+                std::wstring seekCmd = L"seek ";
+                seekCmd += self->_musicAlias;
+                seekCmd += L" to start";
                 if (_gl_mciSendStringW &&
-                    _gl_mciSendStringW(L"seek gamelib_music to start", NULL, 0, NULL) == 0 &&
-                    _gamelib_mci_play_music_alias(hWnd, true, true)) {
+                    _gl_mciSendStringW(seekCmd.c_str(), NULL, 0, NULL) == 0 &&
+                    _gamelib_mci_play_music_alias(self->_musicAlias.c_str(), hWnd, true, true)) {
                     return 0;
                 }
             }
@@ -1169,7 +1213,7 @@ LRESULT CALLBACK GameLib::_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             self->_musicPlaying = false;
             self->_musicLoop = false;
             self->_musicIsMidi = false;
-            _gamelib_close_music_alias();
+            _gamelib_close_music_alias(self->_musicAlias.c_str());
             return 0;
         }
 
@@ -1177,7 +1221,7 @@ LRESULT CALLBACK GameLib::_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             self->_musicPlaying = false;
             self->_musicLoop = false;
             self->_musicIsMidi = false;
-            _gamelib_close_music_alias();
+            _gamelib_close_music_alias(self->_musicAlias.c_str());
             return 0;
         }
 
@@ -1306,26 +1350,23 @@ int GameLib::Open(int width, int height, const char *title, bool center)
     if (width <= 0 || height <= 0 || width > 16384 || height > 16384) return -7;
 
     // Destroy existing resources first
-    if (_memDC) {
-        if (_oldBmp) {
-            _gl_SelectObject(_memDC, _oldBmp);
-            _oldBmp = NULL;
-        }
-        if (_dibSection) {
-            _gl_DeleteObject(_dibSection);
-            _dibSection = NULL;
-        }
-        _gl_DeleteDC(_memDC);
-        _memDC = NULL;
+    _DestroyTimingResources();
+    _DestroyGraphicsResources();
+    if (_hwnd) {
+        DestroyWindow(_hwnd);
+        _hwnd = NULL;
     }
-    _framebuffer = NULL;
-    if (_hwnd) { DestroyWindow(_hwnd); _hwnd = NULL; }
+    {
+        MSG msg;
+        while (PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_REMOVE)) {
+        }
+    }
 
     if (_InitWindowClass() != 0) return -1;
 
     _width = width;
     _height = height;
-    _title = title;
+    _title = title ? title : "";
     _closing = false;
     _active = true;
 
@@ -1377,11 +1418,18 @@ int GameLib::Open(int width, int height, const char *title, bool center)
     }
 
     // Convert UTF-8 to wide string (query required size first)
-    int wtitleLen = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
-    if (wtitleLen <= 0) return -5;
+    const char *windowTitle = _title.c_str();
+    int wtitleLen = MultiByteToWideChar(CP_UTF8, 0, windowTitle, -1, NULL, 0);
+    if (wtitleLen <= 0) {
+        _DestroyGraphicsResources();
+        return -5;
+    }
     wchar_t *wtitle = (wchar_t*)malloc(wtitleLen * sizeof(wchar_t));
-    if (!wtitle) return -5;
-    MultiByteToWideChar(CP_UTF8, 0, title, -1, wtitle, wtitleLen);
+    if (!wtitle) {
+        _DestroyGraphicsResources();
+        return -5;
+    }
+    MultiByteToWideChar(CP_UTF8, 0, windowTitle, -1, wtitle, wtitleLen);
 
     HINSTANCE inst = GetModuleHandle(NULL);
     _hwnd = CreateWindowW(L"GameLibWindowClass", wtitle, style,
@@ -1389,7 +1437,10 @@ int GameLib::Open(int width, int height, const char *title, bool center)
 
     free(wtitle);
 
-    if (!_hwnd) return -6;
+    if (!_hwnd) {
+        _DestroyGraphicsResources();
+        return -6;
+    }
 
     // Second adjustment after creation: ensure client area is exactly width x height
     // AdjustWindowRect may not be accurate in some DPI settings
@@ -1427,7 +1478,9 @@ int GameLib::Open(int width, int height, const char *title, bool center)
     QueryPerformanceFrequency(&perfFrequency);
     _perfFrequency = (perfFrequency.QuadPart > 0) ? (uint64_t)perfFrequency.QuadPart : 1;
 
-    _gl_timeBeginPeriod(1);
+    if (_gl_timeBeginPeriod && _gl_timeBeginPeriod(1) == 0) {
+        _timerPeriodActive = true;
+    }
     _timeStartCounter = _gamelib_query_performance_counter();
     _timePrevCounter = _timeStartCounter;
     _fpsTimeCounter = _timeStartCounter;
@@ -1555,6 +1608,7 @@ double GameLib::GetDeltaTime() const { return _deltaTime; }
 double GameLib::GetFPS() const { return _fps; }
 double GameLib::GetTime() const
 {
+    if (_perfFrequency == 0 || _timeStartCounter == 0) return 0.0;
     uint64_t now = _gamelib_query_performance_counter();
     if (now < _timeStartCounter) now = _timeStartCounter;
     return (double)(now - _timeStartCounter) / (double)_perfFrequency;
@@ -1568,13 +1622,13 @@ int GameLib::GetHeight() const { return _height; }
 //---------------------------------------------------------------------
 void GameLib::SetTitle(const char *title)
 {
-    _title = title;
+    _title = title ? title : "";
     if (_hwnd) {
-        int wlen = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, _title.c_str(), -1, NULL, 0);
         if (wlen > 0) {
             wchar_t *wt = (wchar_t*)malloc(wlen * sizeof(wchar_t));
             if (wt) {
-                MultiByteToWideChar(CP_UTF8, 0, title, -1, wt, wlen);
+                MultiByteToWideChar(CP_UTF8, 0, _title.c_str(), -1, wt, wlen);
                 SetWindowTextW(_hwnd, wt);
                 free(wt);
             }
@@ -2099,17 +2153,20 @@ static bool _gamelib_mci_is_midi_path(const char *filename)
            _gamelib_path_has_extension(filename, "midi");
 }
 
-static bool _gamelib_mci_play_music_alias(HWND callbackWindow, bool isMidi, bool loop)
+static bool _gamelib_mci_play_music_alias(const wchar_t *alias, HWND callbackWindow, bool isMidi, bool loop)
 {
-    if (!_gl_mciSendStringW) return false;
+    if (!_gl_mciSendStringW || !alias || !alias[0]) return false;
+
+    std::wstring playCmd = L"play ";
+    playCmd += alias;
 
     if (isMidi) {
-        return _gl_mciSendStringW(L"play gamelib_music from 0 notify", NULL, 0, callbackWindow) == 0;
+        playCmd += L" from 0 notify";
+        return _gl_mciSendStringW(playCmd.c_str(), NULL, 0, callbackWindow) == 0;
     }
 
-    const wchar_t *playCmd = loop ? L"play gamelib_music repeat"
-                                  : L"play gamelib_music";
-    return _gl_mciSendStringW(playCmd, NULL, 0, NULL) == 0;
+    if (loop) playCmd += L" repeat";
+    return _gl_mciSendStringW(playCmd.c_str(), NULL, 0, NULL) == 0;
 }
 
 static bool _gamelib_read_text_line(FILE *fp, std::string &line)
@@ -2164,11 +2221,16 @@ static bool _gamelib_parse_int_tokens(const std::string &line, int *values, int 
     return true;
 }
 
-static void _gamelib_close_music_alias()
+static void _gamelib_close_music_alias(const wchar_t *alias)
 {
-    if (!_gl_mciSendStringW) return;
-    _gl_mciSendStringW(L"stop gamelib_music", NULL, 0, NULL);
-    _gl_mciSendStringW(L"close gamelib_music", NULL, 0, NULL);
+    if (!_gl_mciSendStringW || !alias || !alias[0]) return;
+
+    std::wstring stopCmd = L"stop ";
+    stopCmd += alias;
+    std::wstring closeCmd = L"close ";
+    closeCmd += alias;
+    _gl_mciSendStringW(stopCmd.c_str(), NULL, 0, NULL);
+    _gl_mciSendStringW(closeCmd.c_str(), NULL, 0, NULL);
 }
 
 static HFONT _gamelib_create_font_utf8(const char *fontName, int fontSize)
@@ -2234,6 +2296,7 @@ static void _gamelib_measure_font_text(HDC dc, const wchar_t *wideText, int *out
 void GameLib::DrawTextFont(int x, int y, const char *text, uint32_t color, const char *fontName, int fontSize)
 {
     if (!_memDC || !text || fontSize <= 0) return;
+    if (COLOR_GET_A(color) == 0) return;
 
     wchar_t *wideText = _gamelib_utf8_to_wide(text, NULL);
     if (!wideText) return;
@@ -2242,6 +2305,32 @@ void GameLib::DrawTextFont(int x, int y, const char *text, uint32_t color, const
 
     if (font) {
         HFONT oldFont = (HFONT)_gl_SelectObject(_memDC, font);
+        int textWidth = 0;
+        int textHeight = 0;
+        _gamelib_measure_font_text(_memDC, wideText, &textWidth, &textHeight);
+
+        int clipX0 = x;
+        int clipY0 = y;
+        int clipX1 = x + textWidth;
+        int clipY1 = y + textHeight;
+        if (clipX0 < 0) clipX0 = 0;
+        if (clipY0 < 0) clipY0 = 0;
+        if (clipX1 > _width) clipX1 = _width;
+        if (clipY1 > _height) clipY1 = _height;
+
+        uint32_t *savedPixels = NULL;
+        int savedWidth = clipX1 - clipX0;
+        int savedHeight = clipY1 - clipY0;
+        if (_framebuffer && COLOR_GET_A(color) < 255 && savedWidth > 0 && savedHeight > 0) {
+            savedPixels = (uint32_t*)malloc((size_t)savedWidth * savedHeight * sizeof(uint32_t));
+            if (savedPixels) {
+                for (int py = 0; py < savedHeight; py++) {
+                    memcpy(savedPixels + py * savedWidth,
+                           _framebuffer + (clipY0 + py) * _width + clipX0,
+                           (size_t)savedWidth * sizeof(uint32_t));
+                }
+            }
+        }
 
         // Set text color (convert ARGB to COLORREF: swap R and B)
         COLORREF cref = RGB(COLOR_GET_R(color), COLOR_GET_G(color), COLOR_GET_B(color));
@@ -2278,22 +2367,33 @@ void GameLib::DrawTextFont(int x, int y, const char *text, uint32_t color, const
         // GDI TextOut writes alpha=0. Repair the text bounding box to keep
         // the framebuffer consistent for later alpha-aware drawing.
         if (_framebuffer) {
-            int x0 = x, y0 = y;
-            int textWidth = 0, textHeight = 0;
-            _gamelib_measure_font_text(_memDC, wideText, &textWidth, &textHeight);
-            int x1 = x + textWidth, y1 = y + textHeight;
-            if (x0 < 0) x0 = 0;
-            if (y0 < 0) y0 = 0;
-            if (x1 > _width) x1 = _width;
-            if (y1 > _height) y1 = _height;
-            for (int py = y0; py < y1; py++) {
+            for (int py = clipY0; py < clipY1; py++) {
                 uint32_t *row = _framebuffer + py * _width;
-                for (int px = x0; px < x1; px++) {
+                for (int px = clipX0; px < clipX1; px++) {
                     uint32_t c = row[px];
                     if ((c & 0xFF000000) == 0 && (c & 0x00FFFFFF) != 0) {
                         row[px] = c | 0xFF000000;
                     }
                 }
+            }
+
+            if (savedPixels) {
+                uint32_t alphaValue = COLOR_GET_A(color);
+                for (int py = 0; py < savedHeight; py++) {
+                    uint32_t *dstRow = _framebuffer + (clipY0 + py) * _width + clipX0;
+                    uint32_t *srcRow = savedPixels + py * savedWidth;
+                    for (int px = 0; px < savedWidth; px++) {
+                        uint32_t before = srcRow[px];
+                        uint32_t after = dstRow[px];
+                        if (after == before) continue;
+                        uint32_t blendedSrc = COLOR_ARGB(alphaValue,
+                                                         COLOR_GET_R(after),
+                                                         COLOR_GET_G(after),
+                                                         COLOR_GET_B(after));
+                        dstRow[px] = _gamelib_alpha_blend(before, blendedSrc);
+                    }
+                }
+                free(savedPixels);
             }
         }
 
@@ -2484,8 +2584,12 @@ int GameLib::LoadSpriteBMP(const char *filename)
     int id = CreateSprite(width, height);
     if (id < 0) { free(rowData); fclose(fp); return -1; }
 
+    bool readOk = true;
     for (int y = 0; y < height; y++) {
-        if (fread(rowData, 1, rowSize, fp) != (size_t)rowSize) break;
+        if (fread(rowData, 1, rowSize, fp) != (size_t)rowSize) {
+            readOk = false;
+            break;
+        }
         int destY = bottomUp ? (height - 1 - y) : y;
         uint32_t *destRow = _sprites[id].pixels + destY * width;
         if (bpp == 8) {
@@ -2506,6 +2610,10 @@ int GameLib::LoadSpriteBMP(const char *filename)
 
     free(rowData);
     fclose(fp);
+    if (!readOk) {
+        FreeSprite(id);
+        return -1;
+    }
     return id;
 }
 
@@ -2961,18 +3069,19 @@ bool GameLib::PlayMusic(const char *filename, bool loop)
     if (!wideFilename) return false;
 
     // Stop previous music first
-    if (_musicPlaying) {
+    if (_musicPlaying || _musicIsMidi) {
         _musicPlaying = false;
         _musicLoop = false;
         _musicIsMidi = false;
-        _gamelib_close_music_alias();
+        _gamelib_close_music_alias(_musicAlias.c_str());
     }
 
     std::wstring openCmd = L"open \"";
     openCmd += wideFilename;
     openCmd += L"\" type ";
     openCmd += deviceType;
-    openCmd += L" alias gamelib_music";
+    openCmd += L" alias ";
+    openCmd += _musicAlias;
     if (_gl_mciSendStringW(openCmd.c_str(), NULL, 0, NULL) != 0) {
         free(wideFilename);
         return false;
@@ -2982,8 +3091,8 @@ bool GameLib::PlayMusic(const char *filename, bool loop)
     _musicLoop = loop;
     _musicIsMidi = isMidi;
 
-    if (!_gamelib_mci_play_music_alias(_hwnd, isMidi, loop)) {
-        _gamelib_close_music_alias();
+    if (!_gamelib_mci_play_music_alias(_musicAlias.c_str(), _hwnd, isMidi, loop)) {
+        _gamelib_close_music_alias(_musicAlias.c_str());
         _musicLoop = false;
         _musicIsMidi = false;
         return false;
@@ -3000,7 +3109,7 @@ void GameLib::StopMusic()
     _musicLoop = false;
     _musicIsMidi = false;
     if (hadMusic) {
-        _gamelib_close_music_alias();
+        _gamelib_close_music_alias(_musicAlias.c_str());
     }
 }
 
@@ -3079,6 +3188,27 @@ static int _gamelib_floor_div(int value, int divisor)
     return q;
 }
 
+int GameLib::_GetTilesetTileCount(int tilesetId, int tileSize) const
+{
+    if (tileSize <= 0) return 0;
+    if (tilesetId < 0 || tilesetId >= (int)_sprites.size()) return 0;
+    if (!_sprites[tilesetId].used) return 0;
+
+    int cols = _sprites[tilesetId].width / tileSize;
+    int rows = _sprites[tilesetId].height / tileSize;
+    if (cols <= 0 || rows <= 0) return 0;
+    return cols * rows;
+}
+
+bool GameLib::_IsValidTileId(int mapId, int tileId) const
+{
+    if (tileId == -1) return true;
+    if (mapId < 0 || mapId >= (int)_tilemaps.size()) return false;
+    if (!_tilemaps[mapId].used) return false;
+    int tileCount = _GetTilesetTileCount(_tilemaps[mapId].tilesetId, _tilemaps[mapId].tileSize);
+    return tileId >= 0 && tileId < tileCount;
+}
+
 
 //=====================================================================
 // Tilemap System
@@ -3108,6 +3238,8 @@ int GameLib::CreateTilemap(int cols, int rows, int tileSize, int tilesetId)
     if (!_sprites[tilesetId].used) return -1;
 
     if (cols > 4096 || rows > 4096) return -1;  // prevent overflow
+    int tileCount = _GetTilesetTileCount(tilesetId, tileSize);
+    if (tileCount <= 0) return -1;
     int id = _AllocTilemapSlot();
     int *tiles = (int*)malloc((size_t)cols * rows * sizeof(int));
     if (!tiles) return -1;
@@ -3208,6 +3340,13 @@ int GameLib::LoadTilemap(const char *filename, int tilesetId)
             fclose(fp);
             return -1;
         }
+        for (int col = 0; col < count; col++) {
+            if (!_IsValidTileId(mapId, rowPtr[col])) {
+                FreeTilemap(mapId);
+                fclose(fp);
+                return -1;
+            }
+        }
     }
 
     fclose(fp);
@@ -3231,6 +3370,7 @@ void GameLib::SetTile(int mapId, int col, int row, int tileId)
     if (!_tilemaps[mapId].used) return;
     if (col < 0 || col >= _tilemaps[mapId].cols) return;
     if (row < 0 || row >= _tilemaps[mapId].rows) return;
+    if (!_IsValidTileId(mapId, tileId)) return;
     _tilemaps[mapId].tiles[row * _tilemaps[mapId].cols + col] = tileId;
 }
 
@@ -3288,6 +3428,7 @@ void GameLib::FillTileRect(int mapId, int col, int row, int cols, int rows, int 
     if (mapId < 0 || mapId >= (int)_tilemaps.size()) return;
     if (!_tilemaps[mapId].used) return;
     if (cols <= 0 || rows <= 0) return;
+    if (!_IsValidTileId(mapId, tileId)) return;
 
     GameTilemap &tm = _tilemaps[mapId];
     int col0 = col;
@@ -3313,6 +3454,7 @@ void GameLib::ClearTilemap(int mapId, int tileId)
 {
     if (mapId < 0 || mapId >= (int)_tilemaps.size()) return;
     if (!_tilemaps[mapId].used) return;
+    if (!_IsValidTileId(mapId, tileId)) return;
 
     GameTilemap &tm = _tilemaps[mapId];
     int count = tm.cols * tm.rows;
@@ -3334,7 +3476,8 @@ void GameLib::DrawTilemap(int mapId, int x, int y, int flags)
     GameSprite &tset = _sprites[tsId];
     int ts = tm.tileSize;
     int tsCols = tm.tilesetCols;
-    if (tsCols <= 0) return;
+    int tileCount = _GetTilesetTileCount(tsId, ts);
+    if (tsCols <= 0 || tileCount <= 0) return;
 
     // Calculate visible tile range on screen, avoid traversing the whole map
     int col0 = (-x) / ts;
@@ -3354,7 +3497,7 @@ void GameLib::DrawTilemap(int mapId, int x, int y, int flags)
     for (int r = row0; r < row1; r++) {
         for (int c = col0; c < col1; c++) {
             int tid = tm.tiles[r * tm.cols + c];
-            if (tid < 0) continue;
+            if (tid < 0 || tid >= tileCount) continue;
 
             // Pixel start position of this tile in tileset
             int srcCol = tid % tsCols;
