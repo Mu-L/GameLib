@@ -16,7 +16,11 @@ static void DrawCheckerboard(GameLib &game, int x, int y, int w, int h, int cell
         for (int px = 0; px < w; px += cell) {
             bool dark = (((px / cell) + (py / cell)) & 1) != 0;
             uint32_t color = dark ? COLOR_RGB(55, 65, 80) : COLOR_RGB(85, 95, 110);
-            game.FillRect(x + px, y + py, cell, cell, color);
+            int cellW = cell;
+            int cellH = cell;
+            if (px + cellW > w) cellW = w - px;
+            if (py + cellH > h) cellH = h - py;
+            game.FillRect(x + px, y + py, cellW, cellH, color);
         }
     }
 }
