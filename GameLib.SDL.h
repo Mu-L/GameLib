@@ -50,7 +50,7 @@
 #endif
 
 #define GAMELIB_SDL_VERSION_MAJOR 0
-#define GAMELIB_SDL_VERSION_MINOR 1
+#define GAMELIB_SDL_VERSION_MINOR 2
 #define GAMELIB_SDL_VERSION_PATCH 0
 
 #include <stdint.h>
@@ -361,6 +361,7 @@ private:
     uint64_t _timeStartCounter;
     uint64_t _timePrevCounter;
     uint64_t _fpsTimeCounter;
+    uint64_t _frameStartCounter;
     uint64_t _perfFrequency;
     double _deltaTime;
     double _fps;
@@ -716,6 +717,7 @@ GameLib::GameLib()
     _timeStartCounter = 0;
     _timePrevCounter = 0;
     _fpsTimeCounter = 0;
+    _frameStartCounter = 0;
     _perfFrequency = 0;
     _deltaTime = 0.0;
     _fps = 0.0;
@@ -1263,6 +1265,7 @@ int GameLib::Open(int width, int height, const char *title, bool center)
     _timeStartCounter = (uint64_t)SDL_GetPerformanceCounter();
     _timePrevCounter = _timeStartCounter;
     _fpsTimeCounter = _timeStartCounter;
+    _frameStartCounter = _timeStartCounter;
     _deltaTime = 0.0;
     _fps = 0.0;
     _fpsAccum = 0.0;
@@ -1361,22 +1364,35 @@ void GameLib::WaitFrame(int fps)
     if (_perfFrequency == 0) return;
     if (fps <= 0) fps = 60;
 
-    uint64_t target = (uint64_t)((double)_perfFrequency / (double)fps);
-    if (target == 0) return;
+    uint64_t frameTime = (uint64_t)((double)_perfFrequency / (double)fps);
+    if (frameTime == 0) frameTime = 1;
+
+    if (_frameStartCounter == 0) {
+        _frameStartCounter = (uint64_t)SDL_GetPerformanceCounter();
+    }
+
+    uint64_t target = _frameStartCounter + frameTime;
+    uint64_t now = (uint64_t)SDL_GetPerformanceCounter();
+    if (now >= target) {
+        _frameStartCounter = now;
+        return;
+    }
 
     for (;;) {
-        uint64_t now = (uint64_t)SDL_GetPerformanceCounter();
-        uint64_t elapsed = now - _timePrevCounter;
-        if (elapsed >= target) break;
+        now = (uint64_t)SDL_GetPerformanceCounter();
+        if (now >= target) break;
 
-        uint64_t remaining = target - elapsed;
+        uint64_t remaining = target - now;
         double remainingMs = (double)remaining * 1000.0 / (double)_perfFrequency;
-        if (remainingMs > 2.0) {
+
+        if (remainingMs > 1.5) {
             SDL_Delay(1);
-        } else {
+        } else if (remainingMs > 0.3) {
             SDL_Delay(0);
         }
     }
+
+    _frameStartCounter = target;
 }
 
 double GameLib::GetDeltaTime() const { return _deltaTime; }

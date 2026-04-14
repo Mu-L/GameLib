@@ -462,14 +462,15 @@ GameLib.SDL.h
 
 推荐算法：
 
-- 目标帧长 = `1.0 / fps`
+- 维护一个绝对帧边界基准（如 `_frameStartCounter`），目标时间 = 上一帧目标时间 + `1.0 / fps`
 - 距离目标时间还很远时调用 `SDL_Delay(1)`
-- 距离目标时间很近时使用短忙等或 `SDL_Delay(0)` 收尾
+- 距离目标时间很近时使用 `SDL_Delay(0)` 或短忙等收尾
 
 原则：
 
 - 精度优先于极端省电，但要避免整帧纯 busy wait。
 - 若 `fps <= 0`，按 60 处理。
+- 不要直接用 `_timePrevCounter` 作为等待起点，否则会把本帧工作耗时重复算进 pacing。
 
 ### 7.5 输入系统
 
@@ -732,6 +733,7 @@ SDL 版时间系统要求：
 
 - `_timeStartCounter`
 - `_timePrevCounter`
+- `_frameStartCounter`
 - `_perfFrequency`
 - `_deltaTime`
 - `_fps`
@@ -777,6 +779,7 @@ int _mouseWheelDelta;
 uint64_t _timeStartCounter;
 uint64_t _timePrevCounter;
 uint64_t _fpsTimeCounter;
+uint64_t _frameStartCounter;
 uint64_t _perfFrequency;
 double _deltaTime;
 double _fps;
