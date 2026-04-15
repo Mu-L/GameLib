@@ -31,6 +31,9 @@
 //     #define GAMELIB_SDL_NO_IMPLEMENTATION
 //     #include "GameLib.SDL.h"
 //
+// Compile command (MinGW / Dev C++):
+//     g++ -o game main.cpp -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer
+//
 //=====================================================================
 #ifndef GAMELIB_SDL_H
 #define GAMELIB_SDL_H
