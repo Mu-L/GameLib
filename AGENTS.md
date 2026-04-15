@@ -98,4 +98,4 @@ g++ -o output.exe source.cpp -mwindows
 - 先阅读 `docs/GameLib.SDL.md`，确认 SDL 版的目标平台、可选依赖、兼容边界、当前实现状态和回归顺序。
 - 修改 `GameLib.SDL.h` 时优先保持 `GameLib` 风格 API 与软件 framebuffer 语义不变。
 - 若改动涉及稳定行为、构建方式或兼容边界，同步更新 `docs/GameLib.SDL.md`。
-- 修改后优先用 `tests/sdldemo1.cpp` ~ `tests/sdldemo14.cpp` 做回归验证，分别覆盖基础绘制、基础图元与 primitive alpha、字体、音频、真实资产 Tilemap、完整游戏循环、经典碰撞/关卡清除、网格离散移动、接取判定，以及精灵基础展示、精灵帧动画与声音演示路径。
+- 修改后优先用 `tests/sdldemo1.cpp` ~ `tests/sdldemo15.cpp` 做回归验证，分别覆盖基础绘制、基础图元与 primitive alpha、字体、音频、真实资产 Tilemap、完整游戏循环、经典碰撞/关卡清除、网格离散移动、接取判定，以及精灵基础展示、精灵帧动画、声音演示、裁剪矩形与 clip 下的 tilemap/文字/图元路径。
