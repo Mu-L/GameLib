@@ -7,7 +7,7 @@
 ```
 - assets/    # images and audios
 - docs/      # documentations
-- examples/  # examples (01~19 渐进式示例，可作为参考和回归测试)
+- examples/  # examples (01~20 渐进式示例，可作为参考和回归测试)
 - tests/     # tests（Win32 demo*.cpp 和 SDL sdldemo*.cpp；目录里可能已有编译产物 .exe/.o）
 - GameLib.h  # main source (Win32 主线，单头文件，所有实现都在这一个文件里)
 - GameLib.SDL.h # independent SDL product line (跨平台 SDL 版单头文件)
@@ -82,7 +82,7 @@ g++ -o output.exe source.cpp -mwindows
 
 - 先完整阅读 docs/Manual.md（接口说明）和 docs/GameLib.md（设计思路），确保理解 GameLib.h 的用法。
 - 阅读 assets/sprites.md 和 assets/sound.md，了解可用的图片和音效资源，优先使用现有素材。
-- 参考 examples/ 目录下的示例代码（从 01_hello.cpp 到 19_clip_tilemap.cpp），它们按功能渐进排列，涵盖窗口、图形、精灵、动画、声音、Tilemap、裁剪矩形、字体、缩放与 tilemap 文件等主题。
+- 参考 examples/ 目录下的示例代码（从 01_hello.cpp 到 20_sprite_rotation.cpp），它们按功能渐进排列，涵盖窗口、图形、精灵、动画、声音、Tilemap、裁剪矩形、字体、缩放、旋转与 tilemap 文件等主题。
 - 游戏文件放在 examples/ 或 tests/ 目录下，通过 `#include "../GameLib.h"` 引入。
 
 ### 迭代 GameLib.h
@@ -98,4 +98,4 @@ g++ -o output.exe source.cpp -mwindows
 - 先阅读 `docs/GameLib.SDL.md`，确认 SDL 版的目标平台、可选依赖、兼容边界、当前实现状态和回归顺序。
 - 修改 `GameLib.SDL.h` 时优先保持 `GameLib` 风格 API 与软件 framebuffer 语义不变。
 - 若改动涉及稳定行为、构建方式或兼容边界，同步更新 `docs/GameLib.SDL.md`。
-- 修改后优先用 `tests/sdldemo1.cpp` ~ `tests/sdldemo15.cpp` 做回归验证，分别覆盖基础绘制、基础图元与 primitive alpha、字体、音频、真实资产 Tilemap、完整游戏循环、经典碰撞/关卡清除、网格离散移动、接取判定，以及精灵基础展示、精灵帧动画、声音演示、裁剪矩形与 clip 下的 tilemap/文字/图元路径。
+- 修改后优先用 `tests/sdldemo1.cpp` ~ `tests/sdldemo16.cpp` 做回归验证，分别覆盖基础绘制、基础图元与 primitive alpha、字体、音频、真实资产 Tilemap、完整游戏循环、经典碰撞/关卡清除、网格离散移动、接取判定，以及精灵基础展示、精灵帧动画、声音演示、裁剪矩形与 clip 下的 tilemap/文字/图元路径，并新增独立的精灵旋转路径回归。

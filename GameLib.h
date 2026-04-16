@@ -375,8 +375,11 @@ public:
     void DrawSpriteRegion(int id, int x, int y, int sx, int sy, int sw, int sh);
     void DrawSpriteRegionEx(int id, int x, int y, int sx, int sy, int sw, int sh, int flags = 0);
     void DrawSpriteScaled(int id, int x, int y, int w, int h, int flags = 0);
+    void DrawSpriteRotated(int id, int cx, int cy, double angleDeg, int flags = 0);
     void DrawSpriteFrame(int id, int x, int y, int frameW, int frameH, int frameIndex, int flags = 0);
     void DrawSpriteFrameScaled(int id, int x, int y, int frameW, int frameH, int frameIndex, int w, int h, int flags = 0);
+    void DrawSpriteFrameRotated(int id, int cx, int cy, int frameW, int frameH, int frameIndex,
+                                double angleDeg, int flags = 0);
     void SetSpritePixel(int id, int x, int y, uint32_t color);
     uint32_t GetSpritePixel(int id, int x, int y) const;
     int GetSpriteWidth(int id) const;
@@ -476,6 +479,8 @@ private:
     void _DrawSpriteAreaFast(int id, int x, int y, int sx, int sy, int sw, int sh, int flags);
     void _DrawSpriteAreaScaled(int id, int x, int y, int sx, int sy, int sw, int sh,
                                int dw, int dh, int flags);
+    void _DrawSpriteAreaRotated(int id, int cx, int cy, int sx, int sy, int sw, int sh,
+                                double angleDeg, int flags);
 
     // internal tilemap management
     int _AllocTilemapSlot();
@@ -3107,6 +3112,85 @@ void GameLib::_DrawSpriteAreaScaled(int id, int x, int y, int sx, int sy, int sw
     }
 }
 
+void GameLib::_DrawSpriteAreaRotated(int id, int cx, int cy, int sx, int sy, int sw, int sh,
+                                     double angleDeg, int flags)
+{
+    if (id < 0 || id >= (int)_sprites.size()) return;
+    if (!_sprites[id].used || !_framebuffer) return;
+    if (sw <= 0 || sh <= 0) return;
+    if (_clipW <= 0 || _clipH <= 0) return;
+
+    GameSprite &spr = _sprites[id];
+    double normalizedAngle = fmod(angleDeg, 360.0);
+    if (normalizedAngle < 0.0) normalizedAngle += 360.0;
+    if (normalizedAngle == 0.0) {
+        _DrawSpriteAreaFast(id, cx - sw / 2, cy - sh / 2, sx, sy, sw, sh, flags);
+        return;
+    }
+
+    bool flipH = (flags & SPRITE_FLIP_H) != 0;
+    bool flipV = (flags & SPRITE_FLIP_V) != 0;
+    bool useAlpha = (flags & SPRITE_ALPHA) != 0;
+    bool useColorKey = (flags & SPRITE_COLORKEY) != 0;
+    uint32_t colorKey = spr.colorKey;
+
+    const double radians = normalizedAngle * (3.14159265358979323846 / 180.0);
+    const double cosA = cos(radians);
+    const double sinA = sin(radians);
+    const double halfW = (double)sw * 0.5;
+    const double halfH = (double)sh * 0.5;
+    const double srcCenterX = (double)(sw - 1) * 0.5;
+    const double srcCenterY = (double)(sh - 1) * 0.5;
+
+    double cornerX[4] = { -halfW, halfW, halfW, -halfW };
+    double cornerY[4] = { -halfH, -halfH, halfH, halfH };
+    double minX = 0.0, maxX = 0.0, minY = 0.0, maxY = 0.0;
+    for (int i = 0; i < 4; i++) {
+        double rx = cornerX[i] * cosA - cornerY[i] * sinA;
+        double ry = cornerX[i] * sinA + cornerY[i] * cosA;
+        if (i == 0 || rx < minX) minX = rx;
+        if (i == 0 || rx > maxX) maxX = rx;
+        if (i == 0 || ry < minY) minY = ry;
+        if (i == 0 || ry > maxY) maxY = ry;
+    }
+
+    int dx0 = (int)floor((double)cx + minX);
+    int dy0 = (int)floor((double)cy + minY);
+    int dx1 = (int)ceil((double)cx + maxX);
+    int dy1 = (int)ceil((double)cy + maxY);
+    if (!_ClipRectToCurrentClip(&dx0, &dy0, &dx1, &dy1)) return;
+
+    for (int dy = dy0; dy < dy1; dy++) {
+        double localY = (double)(dy - cy);
+        uint32_t *dstRow = _framebuffer + dy * _width;
+
+        for (int dx = dx0; dx < dx1; dx++) {
+            double localX = (double)(dx - cx);
+            int srcLocalX = _gamelib_round_to_int(localX * cosA + localY * sinA + srcCenterX);
+            int srcLocalY = _gamelib_round_to_int(-localX * sinA + localY * cosA + srcCenterY);
+            if (srcLocalX < 0 || srcLocalX >= sw || srcLocalY < 0 || srcLocalY >= sh) continue;
+
+            if (flipH) srcLocalX = sw - 1 - srcLocalX;
+            if (flipV) srcLocalY = sh - 1 - srcLocalY;
+
+            int srcX = sx + srcLocalX;
+            int srcY = sy + srcLocalY;
+            if (srcX < 0 || srcX >= spr.width || srcY < 0 || srcY >= spr.height) continue;
+
+            uint32_t c = spr.pixels[srcY * spr.width + srcX];
+            if (useColorKey && c == colorKey) continue;
+
+            if (!useAlpha) {
+                dstRow[dx] = c;
+            } else {
+                uint32_t sa = COLOR_GET_A(c);
+                if (sa == 0) continue;
+                _gamelib_blend_pixel(dstRow + dx, c);
+            }
+        }
+    }
+}
+
 void GameLib::DrawSprite(int id, int x, int y)
 {
     DrawSpriteEx(id, x, y, 0);
@@ -3137,6 +3221,14 @@ void GameLib::DrawSpriteScaled(int id, int x, int y, int w, int h, int flags)
         _DrawSpriteAreaFast(id, x, y, 0, 0, _sprites[id].width, _sprites[id].height, flags);
     else
         _DrawSpriteAreaScaled(id, x, y, 0, 0, _sprites[id].width, _sprites[id].height, w, h, flags);
+}
+
+void GameLib::DrawSpriteRotated(int id, int cx, int cy, double angleDeg, int flags)
+{
+    if (id < 0 || id >= (int)_sprites.size()) return;
+    if (!_sprites[id].used) return;
+    _DrawSpriteAreaRotated(id, cx, cy, 0, 0, _sprites[id].width, _sprites[id].height,
+                           angleDeg, flags);
 }
 
 void GameLib::DrawSpriteFrame(int id, int x, int y, int frameW, int frameH, int frameIndex, int flags)
@@ -3179,6 +3271,26 @@ void GameLib::DrawSpriteFrameScaled(int id, int x, int y, int frameW, int frameH
         _DrawSpriteAreaFast(id, x, y, sx, sy, frameW, frameH, flags);
     else
         _DrawSpriteAreaScaled(id, x, y, sx, sy, frameW, frameH, w, h, flags);
+}
+
+void GameLib::DrawSpriteFrameRotated(int id, int cx, int cy, int frameW, int frameH, int frameIndex,
+                                     double angleDeg, int flags)
+{
+    if (id < 0 || id >= (int)_sprites.size()) return;
+    if (!_sprites[id].used) return;
+    if (frameW <= 0 || frameH <= 0 || frameIndex < 0) return;
+
+    GameSprite &spr = _sprites[id];
+    int cols = spr.width / frameW;
+    int rows = spr.height / frameH;
+    if (cols <= 0 || rows <= 0) return;
+
+    int totalFrames = cols * rows;
+    if (frameIndex >= totalFrames) return;
+
+    int sx = (frameIndex % cols) * frameW;
+    int sy = (frameIndex / cols) * frameH;
+    _DrawSpriteAreaRotated(id, cx, cy, sx, sy, frameW, frameH, angleDeg, flags);
 }
 
 void GameLib::SetSpritePixel(int id, int x, int y, uint32_t color)

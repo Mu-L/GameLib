@@ -68,8 +68,10 @@
 | `DrawSpriteRegion(id, x, y, sx, sy, sw, sh)` | 绘制精灵子区域                  |
 | `DrawSpriteRegionEx(id, x, y, sx, sy, sw, sh, flags)` | 带 flags 绘制精灵子区域 |
 | `DrawSpriteScaled(id, x, y, w, h, flags = 0)` | 按目标尺寸缩放绘制精灵        |
+| `DrawSpriteRotated(id, cx, cy, angleDeg, flags = 0)` | 以中心点为基准旋转绘制整张精灵 |
 | `DrawSpriteFrame(id, x, y, frameW, frameH, frameIndex, flags = 0)` | 按帧号绘制 sprite sheet 中的帧 |
 | `DrawSpriteFrameScaled(id, x, y, frameW, frameH, frameIndex, w, h, flags = 0)` | 按帧号缩放绘制 sprite sheet 中的帧 |
+| `DrawSpriteFrameRotated(id, cx, cy, frameW, frameH, frameIndex, angleDeg, flags = 0)` | 按帧号以中心点为基准旋转绘制 |
 | `SetSpritePixel(id, x, y, color)`            | 修改精灵像素                    |
 | `GetSpritePixel(id, x, y)`                   | 读取精灵像素                    |
 | `GetSpriteWidth(id)` / `GetSpriteHeight(id)` | 读取精灵尺寸                    |
@@ -79,6 +81,8 @@
 精灵标志：`SPRITE_FLIP_H`（水平翻转）、`SPRITE_FLIP_V`（垂直翻转）、`SPRITE_COLORKEY`（按该精灵当前 Color Key 透明，默认品红色）、`SPRITE_ALPHA`（Alpha 混合）
 
 默认的 `DrawSprite(id, x, y)` 走不透明快路径；如果素材依赖透明孔洞，请显式传 `SPRITE_COLORKEY` 或 `SPRITE_ALPHA`。
+
+`DrawSpriteRotated` / `DrawSpriteFrameRotated` 以精灵或帧的中心落在 `(cx, cy)` 为基准，`angleDeg > 0` 表示顺时针旋转；当前实现使用最近邻采样，并继续沿用现有 flags 的翻转、Color Key 和 Alpha 语义。
 
 ### 输入
 

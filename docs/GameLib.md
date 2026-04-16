@@ -4,10 +4,10 @@
 
 `GameLib.h` 是一个面向初学者的 **单头文件游戏库**，基于 Win32 GDI，无需 SDL 或其他第三方库。目标用户是小朋友，用于在 Dev C++ (GCC 4.9.2) 环境下开发简单游戏（空战、俄罗斯方块、走迷宫等）。
 
-**当前版本**: `1.6.0`
+**当前版本**: `1.7.0`
 **最后修改**: 2026/04/16
 
-当前 `1.6.0` 已包含鼠标显示/隐藏、`ShowMessage()`、椭圆绘制、图元 Alpha 混合、`DrawPrintfFont()`、Clip Rectangle 裁剪矩形、裁剪后的 `DrawLine()`、`LoadSprite()` 的超大尺寸拒绝、默认 sprite/tilemap 快路径“无 Alpha 且无 ColorKey 时直接覆盖目标像素”的实现规则，以及最近调整后的 Tilemap 语义：不再缓存 `tilesetTileCount`，允许地图数据保存超出当前 tileset 范围的非负 `tileId`，并在 `DrawTilemap()` 绘制时按 live tileset 尺寸跳过不可用瓦片），以及新增的场景管理（`SetScene`/`GetScene`/`IsSceneChanged`/`GetPreviousScene`，延迟到下一帧生效）和存档读写（`SaveInt`/`LoadInt`/`SaveFloat`/`LoadFloat`/`SaveString`/`LoadString`/`HasSaveKey`/`DeleteSaveKey`/`DeleteSave`，全部 `static`，纯文本 `key=value` 格式）。
+当前 `1.7.0` 已包含鼠标显示/隐藏、`ShowMessage()`、椭圆绘制、图元 Alpha 混合、`DrawPrintfFont()`、Clip Rectangle 裁剪矩形、裁剪后的 `DrawLine()`、`LoadSprite()` 的超大尺寸拒绝、默认 sprite/tilemap 快路径“无 Alpha 且无 ColorKey 时直接覆盖目标像素”的实现规则、独立的精灵旋转绘制（`DrawSpriteRotated` / `DrawSpriteFrameRotated`，中心点语义，最近邻采样），以及最近调整后的 Tilemap 语义：不再缓存 `tilesetTileCount`，允许地图数据保存超出当前 tileset 范围的非负 `tileId`，并在 `DrawTilemap()` 绘制时按 live tileset 尺寸跳过不可用瓦片），以及新增的场景管理（`SetScene`/`GetScene`/`IsSceneChanged`/`GetPreviousScene`，延迟到下一帧生效）和存档读写（`SaveInt`/`LoadInt`/`SaveFloat`/`LoadFloat`/`SaveString`/`LoadString`/`HasSaveKey`/`DeleteSaveKey`/`DeleteSave`，全部 `static`，纯文本 `key=value` 格式）。
 
 ---
 
@@ -554,6 +554,12 @@ static bool _srandDone; // srand 是否已初始化
 - 将整张精灵按目标尺寸缩放绘制
 - 当前实现使用最近邻采样，适合像素风和教学场景
 
+#### `void DrawSpriteRotated(int id, int cx, int cy, double angleDeg, int flags = 0)`
+- 将整张精灵绕自身中心旋转后绘制，中心点落在 `(cx, cy)`
+- `angleDeg > 0` 表示按屏幕坐标系顺时针旋转
+- 当前实现使用独立的最近邻旋转路径，不复用缩放 helper，因此不会影响既有缩放行为
+- `SPRITE_FLIP_H` / `SPRITE_FLIP_V` / `SPRITE_COLORKEY` / `SPRITE_ALPHA` 语义与其他 `DrawSprite*` 接口保持一致
+
 #### `void DrawSpriteFrame(int id, int x, int y, int frameW, int frameH, int frameIndex, int flags = 0)`
 - 按从左到右、从上到下的顺序绘制 sprite sheet 中的某一帧
 - 每行帧数由 `spriteWidth / frameW` 自动推导
@@ -561,6 +567,10 @@ static bool _srandDone; // srand 是否已初始化
 #### `void DrawSpriteFrameScaled(int id, int x, int y, int frameW, int frameH, int frameIndex, int w, int h, int flags = 0)`
 - 先按帧号选取 sprite sheet 子区域，再按目标尺寸缩放绘制
 - 适合角色动画、头像预览、物品图标放大等常见场景
+
+#### `void DrawSpriteFrameRotated(int id, int cx, int cy, int frameW, int frameH, int frameIndex, double angleDeg, int flags = 0)`
+- 先按帧号选取 sprite sheet 子区域，再绕该帧中心旋转绘制
+- 帧号顺序、越界判断和 flags 语义与 `DrawSpriteFrame` 保持一致
 
 #### `void SetSpritePixel(int id, int x, int y, uint32_t color)`
 - 修改精灵指定像素
@@ -887,6 +897,7 @@ level=3
 | `int _AllocSpriteSlot()` | 在 `_sprites` 向量中找空闲槽位或追加新槽位 |
 | `void _DrawSpriteAreaFast(...)` | 非缩放精灵/区域绘制快路径；无 Alpha 且无 ColorKey 时直接写入源像素（无翻转时优先逐行 `memcpy`），其他情况按 flags 做 Color Key 或 Alpha 处理 |
 | `void _DrawSpriteAreaScaled(...)` | 缩放绘制路径，使用最近邻采样并保持翻转、Color Key、Alpha 语义 |
+| `void _DrawSpriteAreaRotated(...)` | 旋转绘制路径，按包围盒逐像素做逆向旋转采样，并保持翻转、Color Key、Alpha 语义 |
 | `int _AllocTilemapSlot()` | 在 `_tilemaps` 向量中找空闲槽位或追加新槽位 |
 | `int _GetTilesetTileCount(int tilesetId, int tileSize) const` | 根据当前 tileset sprite 尺寸计算可用瓦片总数 |
 | `static int _gamelib_floor_div(int value, int divisor)` | 向下取整整数除法，供负坐标的 Tilemap 像素到瓦片坐标换算使用 |
@@ -968,7 +979,7 @@ int main() {
 
 ### 未来改进方向
 
-1. **精灵旋转** — 添加 `DrawSpriteRotated`
+1. **旋转 + 缩放组合绘制** — 在现有旋转与缩放接口之上补统一仿射接口
 2. **更多图元** — 圆角矩形、贝塞尔曲线等
 3. **简单动画系统** — 在 `DrawSpriteFrame` 之上补更高层的动画播放辅助
 4. **音频增强** — 多通道音效、音量控制

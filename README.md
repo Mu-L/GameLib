@@ -307,7 +307,7 @@ int main()
 
 ## 示例程序
 
-`examples/` 目录包含 19 个由浅入深的示例，逐步展示 GameLib 的各项功能，覆盖窗口、图形、输入、精灵、声音、Tilemap、裁剪矩形、字体文字和缩放绘制。
+`examples/` 目录包含 20 个由浅入深的示例，逐步展示 GameLib 的各项功能，覆盖窗口、图形、输入、精灵、声音、Tilemap、裁剪矩形、字体文字、缩放与旋转绘制。
 
 编译任意示例：
 
@@ -369,6 +369,7 @@ g++ -o 03_shapes.exe examples/03_shapes.cpp -mwindows
 | `15_font_text.cpp` | 可缩放字体 | DrawTextFont、中文文字输出、不同字号 |
 | `16_playsound.cpp` | 简单音效播放 | PlayWAV、按键触发音效 |
 | `17_sprite_scaling.cpp` | 精灵缩放绘制 | LoadSprite、DrawSpriteScaled / DrawSpriteFrameScaled、滚轮调比例 |
+| `20_sprite_rotation.cpp` | 精灵旋转绘制 | CreateSprite、DrawSpriteRotated / DrawSpriteFrameRotated、中心点旋转 |
 
 
 
@@ -430,8 +431,10 @@ g++ -o 03_shapes.exe examples/03_shapes.cpp -mwindows
 | `DrawSpriteRegion(id, x, y, sx, sy, sw, sh)` | 绘制精灵子区域 |
 | `DrawSpriteRegionEx(...)` | 带 flags 绘制精灵子区域 |
 | `DrawSpriteScaled(id, x, y, w, h, flags)` | 按目标尺寸缩放绘制精灵 |
+| `DrawSpriteRotated(id, cx, cy, angleDeg, flags)` | 以中心点为基准旋转绘制精灵 |
 | `DrawSpriteFrame(...)` | 按帧号绘制 sprite sheet 中的帧 |
 | `DrawSpriteFrameScaled(...)` | 按帧号缩放绘制 sprite sheet 中的帧 |
+| `DrawSpriteFrameRotated(...)` | 按帧号以中心点为基准旋转绘制 |
 | `SetSpritePixel(id, x, y, color)` | 修改精灵像素 |
 | `GetSpritePixel(id, x, y)` | 读取精灵像素 |
 | `SetSpriteColorKey(id, color)` | 设置该精灵的 Color Key |

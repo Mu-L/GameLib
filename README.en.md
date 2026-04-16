@@ -307,7 +307,7 @@ More examples in the `examples/` directory.
 
 ## Example Programs
 
-The `examples/` directory contains 19 progressive examples that demonstrate GameLib's features step by step, covering windows, graphics, input, sprites, sound, tilemap, clip rectangles, font text, and scaled drawing.
+The `examples/` directory contains 20 progressive examples that demonstrate GameLib's features step by step, covering windows, graphics, input, sprites, sound, tilemap, clip rectangles, font text, scaled drawing, and rotated drawing.
 
 Compile any example:
 
@@ -369,6 +369,7 @@ That's it.
 | `15_font_text.cpp` | Scalable fonts | DrawTextFont, Chinese text output, different font sizes |
 | `16_playsound.cpp` | Simple sound playback | PlayWAV, key-triggered sound effects |
 | `17_sprite_scaling.cpp` | Sprite scaled drawing | LoadSprite, DrawSpriteScaled / DrawSpriteFrameScaled, scroll wheel zoom |
+| `20_sprite_rotation.cpp` | Sprite rotation drawing | CreateSprite, DrawSpriteRotated / DrawSpriteFrameRotated, center-based rotation |
 
 
 
@@ -430,8 +431,10 @@ That's it.
 | `DrawSpriteRegion(id, x, y, sx, sy, sw, sh)` | Draw sprite sub-region |
 | `DrawSpriteRegionEx(...)` | Draw sprite sub-region with flags |
 | `DrawSpriteScaled(id, x, y, w, h, flags)` | Draw sprite scaled to target size |
+| `DrawSpriteRotated(id, cx, cy, angleDeg, flags)` | Draw sprite rotated around its center |
 | `DrawSpriteFrame(...)` | Draw frame from sprite sheet by frame number |
 | `DrawSpriteFrameScaled(...)` | Draw scaled frame from sprite sheet by frame number |
+| `DrawSpriteFrameRotated(...)` | Draw a sprite-sheet frame rotated around its center |
 | `SetSpritePixel(id, x, y, color)` | Modify sprite pixel |
 | `GetSpritePixel(id, x, y)` | Read sprite pixel |
 | `SetSpriteColorKey(id, color)` | Set sprite's Color Key |
