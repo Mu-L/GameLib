@@ -68,13 +68,81 @@
 #include <vector>
 #include <string>
 
-struct SDL_Window;
-struct SDL_Renderer;
-struct SDL_Texture;
-struct SDL_Surface;
+// SDL headers and extension library detection (moved here from
+// GAMELIB_SDL_IMPLEMENTATION so that the GameLib class declaration
+// below can use the real SDL types instead of fragile forward
+// declarations that break across different SDL builds).
+
+#if defined(__has_include)
+#if __has_include(<SDL.h>)
+#include <SDL.h>
+#elif __has_include(<SDL2/SDL.h>)
+#include <SDL2/SDL.h>
+#else
+#error SDL2 headers not found. Install SDL2 and add its include path.
+#endif
+#else
+#include <SDL.h>
+#endif
+
+#if GAMELIB_SDL_DISABLE_IMAGE
+#define GAMELIB_SDL_HAS_IMAGE 0
+#elif defined(__has_include)
+#if __has_include(<SDL_image.h>)
+#include <SDL_image.h>
+#define GAMELIB_SDL_HAS_IMAGE 1
+#elif __has_include(<SDL2/SDL_image.h>)
+#include <SDL2/SDL_image.h>
+#define GAMELIB_SDL_HAS_IMAGE 1
+#else
+#define GAMELIB_SDL_HAS_IMAGE 0
+#endif
+#else
+#define GAMELIB_SDL_HAS_IMAGE 0
+#endif
+
+#if GAMELIB_SDL_DISABLE_TTF
+#define GAMELIB_SDL_HAS_TTF 0
+#elif defined(__has_include)
+#if __has_include(<SDL_ttf.h>)
+#include <SDL_ttf.h>
+#define GAMELIB_SDL_HAS_TTF 1
+#elif __has_include(<SDL2/SDL_ttf.h>)
+#include <SDL2/SDL_ttf.h>
+#define GAMELIB_SDL_HAS_TTF 1
+#else
+#define GAMELIB_SDL_HAS_TTF 0
+#endif
+#else
+#define GAMELIB_SDL_HAS_TTF 0
+#endif
+
+#if GAMELIB_SDL_DISABLE_MIXER
+#define GAMELIB_SDL_HAS_MIXER 0
+#elif defined(__has_include)
+#if __has_include(<SDL_mixer.h>)
+#include <SDL_mixer.h>
+#define GAMELIB_SDL_HAS_MIXER 1
+#elif __has_include(<SDL2/SDL_mixer.h>)
+#include <SDL2/SDL_mixer.h>
+#define GAMELIB_SDL_HAS_MIXER 1
+#else
+#define GAMELIB_SDL_HAS_MIXER 0
+#endif
+#else
+#define GAMELIB_SDL_HAS_MIXER 0
+#endif
+
+// Forward declarations for extension types when their headers are not available.
+// These match the official SDL struct tag naming so they won't conflict if the
+// headers are later included from elsewhere.
+#if !GAMELIB_SDL_HAS_TTF
 typedef struct _TTF_Font TTF_Font;
+#endif
+#if !GAMELIB_SDL_HAS_MIXER
 typedef struct Mix_Chunk Mix_Chunk;
 typedef struct _Mix_Music Mix_Music;
+#endif
 
 // Color constants (ARGB format: 0xAARRGGBB)
 #define COLOR_BLACK       0xFF000000
@@ -533,66 +601,6 @@ static const unsigned char _gamelib_font8x8[95][8] = {
 };
 
 #ifdef GAMELIB_SDL_IMPLEMENTATION
-
-#if defined(__has_include)
-#if __has_include(<SDL.h>)
-#include <SDL.h>
-#elif __has_include(<SDL2/SDL.h>)
-#include <SDL2/SDL.h>
-#else
-#error SDL2 headers not found. Install SDL2 and add its include path.
-#endif
-#else
-#include <SDL.h>
-#endif
-
-#if GAMELIB_SDL_DISABLE_IMAGE
-#define GAMELIB_SDL_HAS_IMAGE 0
-#elif defined(__has_include)
-#if __has_include(<SDL_image.h>)
-#include <SDL_image.h>
-#define GAMELIB_SDL_HAS_IMAGE 1
-#elif __has_include(<SDL2/SDL_image.h>)
-#include <SDL2/SDL_image.h>
-#define GAMELIB_SDL_HAS_IMAGE 1
-#else
-#define GAMELIB_SDL_HAS_IMAGE 0
-#endif
-#else
-#define GAMELIB_SDL_HAS_IMAGE 0
-#endif
-
-#if GAMELIB_SDL_DISABLE_TTF
-#define GAMELIB_SDL_HAS_TTF 0
-#elif defined(__has_include)
-#if __has_include(<SDL_ttf.h>)
-#include <SDL_ttf.h>
-#define GAMELIB_SDL_HAS_TTF 1
-#elif __has_include(<SDL2/SDL_ttf.h>)
-#include <SDL2/SDL_ttf.h>
-#define GAMELIB_SDL_HAS_TTF 1
-#else
-#define GAMELIB_SDL_HAS_TTF 0
-#endif
-#else
-#define GAMELIB_SDL_HAS_TTF 0
-#endif
-
-#if GAMELIB_SDL_DISABLE_MIXER
-#define GAMELIB_SDL_HAS_MIXER 0
-#elif defined(__has_include)
-#if __has_include(<SDL_mixer.h>)
-#include <SDL_mixer.h>
-#define GAMELIB_SDL_HAS_MIXER 1
-#elif __has_include(<SDL2/SDL_mixer.h>)
-#include <SDL2/SDL_mixer.h>
-#define GAMELIB_SDL_HAS_MIXER 1
-#else
-#define GAMELIB_SDL_HAS_MIXER 0
-#endif
-#else
-#define GAMELIB_SDL_HAS_MIXER 0
-#endif
 
 bool GameLib::_srandDone = false;
 
