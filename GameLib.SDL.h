@@ -338,6 +338,8 @@ public:
 
     bool Button(int x, int y, int w, int h, const char *text, uint32_t color);
     bool Checkbox(int x, int y, const char *text, bool *checked);
+    bool RadioBox(int x, int y, const char *text, int *value, int index);
+    bool ToggleButton(int x, int y, int w, int h, const char *text, bool *toggled, uint32_t color);
 
     void DrawTextFont(int x, int y, const char *text, uint32_t color, const char *fontName, int fontSize);
     void DrawTextFont(int x, int y, const char *text, uint32_t color, int fontSize);
@@ -2385,6 +2387,148 @@ bool GameLib::Checkbox(int x, int y, const char *text, bool *checked)
     if (mouseReleased && _uiActiveId == id) {
         if (hovered) {
             *checked = !*checked;
+            changed = true;
+        }
+        _uiActiveId = 0;
+    }
+    return changed;
+}
+
+static void _gamelib_ui_draw_radio_circle(GameLib *game, int x, int y, int size,
+                                           bool selected, bool pressed, uint32_t face,
+                                           uint32_t dotColor)
+{
+    if (!game || size <= 0) return;
+
+    int cx = x + size / 2;
+    int cy = y + size / 2;
+    int r = size / 2;
+    if (r < 4) r = 4;
+
+    if (pressed) {
+        cx += 1;
+        cy += 1;
+    }
+
+    game->FillCircle(cx, cy, r, face);
+
+    uint32_t lightColor = _gamelib_ui_lighten(face, 112);
+    uint32_t darkColor = _gamelib_ui_darken(face, 112);
+    if (pressed) {
+        uint32_t tmp = lightColor; lightColor = darkColor; darkColor = tmp;
+    }
+    game->DrawCircle(cx, cy, r, darkColor);
+    game->DrawCircle(cx, cy, r - 1, lightColor);
+
+    if (selected) {
+        int dotR = r / 2;
+        if (dotR < 3) dotR = 3;
+        game->FillCircle(cx, cy, dotR, dotColor);
+    }
+}
+
+bool GameLib::RadioBox(int x, int y, const char *text, int *value, int index)
+{
+    if (!value) return false;
+
+    const int boxSize = 16;
+    const int gap = (text && text[0]) ? 6 : 0;
+    int labelWidth = _gamelib_ui_text_width(text);
+    int labelHeight = _gamelib_ui_text_height(text);
+    int controlWidth = boxSize + gap + labelWidth;
+    int controlHeight = boxSize;
+    if (labelHeight > controlHeight) controlHeight = labelHeight;
+    if (controlWidth <= 0) controlWidth = boxSize;
+
+    int boxY = y + (controlHeight - boxSize) / 2;
+    int labelY = y + (controlHeight - labelHeight) / 2;
+    if (labelHeight <= 0) labelY = y + (controlHeight - 8) / 2;
+
+    uint32_t id = _gamelib_ui_make_id(0x52444F31u, x, y, controlWidth, controlHeight, text);
+    bool hovered = PointInRect(_mouseX, _mouseY, x, y, controlWidth, controlHeight);
+    bool mousePressed = IsMousePressed(MOUSE_LEFT);
+    bool mouseReleased = IsMouseReleased(MOUSE_LEFT);
+    bool mouseDown = IsMouseDown(MOUSE_LEFT);
+
+    if (mousePressed && hovered) {
+        _uiActiveId = id;
+    }
+
+    bool pressed = (_uiActiveId == id) && mouseDown && hovered;
+
+    bool willSelect = (mouseReleased && hovered && _uiActiveId == id) ? true : (*value == index);
+    uint32_t face = hovered
+        ? _gamelib_ui_lighten(COLOR_RGB(182, 182, 182), 32)
+        : COLOR_RGB(182, 182, 182);
+    if (pressed) face = _gamelib_ui_darken(face, 28);
+    uint32_t dotColor = hovered ? COLOR_BLACK : COLOR_DARK_GRAY;
+
+    _gamelib_ui_draw_radio_circle(this, x, boxY, boxSize, willSelect, pressed, face, dotColor);
+
+    if (text && text[0]) {
+        uint32_t labelColor = hovered ? COLOR_WHITE : COLOR_LIGHT_GRAY;
+        _gamelib_ui_draw_text_with_shadow(this, x + boxSize + gap, labelY, text,
+                                          labelColor, COLOR_ARGB(160, 0, 0, 0));
+    }
+
+    bool changed = false;
+    if (mouseReleased && _uiActiveId == id) {
+        if (hovered && *value != index) {
+            *value = index;
+            changed = true;
+        }
+        _uiActiveId = 0;
+    }
+    return changed;
+}
+
+bool GameLib::ToggleButton(int x, int y, int w, int h, const char *text,
+                           bool *toggled, uint32_t color)
+{
+    if (w <= 0 || h <= 0 || !toggled) return false;
+
+    uint32_t id = _gamelib_ui_make_id(0x54474231u, x, y, w, h, text);
+    bool hovered = PointInRect(_mouseX, _mouseY, x, y, w, h);
+    bool mousePressed = IsMousePressed(MOUSE_LEFT);
+    bool mouseReleased = IsMouseReleased(MOUSE_LEFT);
+    bool mouseDown = IsMouseDown(MOUSE_LEFT);
+
+    if (mousePressed && hovered) {
+        _uiActiveId = id;
+    }
+
+    bool pressed = (_uiActiveId == id) && mouseDown && hovered;
+
+    bool willToggle = (mouseReleased && hovered && _uiActiveId == id);
+    bool on = willToggle ? !*toggled : *toggled;
+
+    bool bevelPressed = pressed || on;
+    uint32_t face = color;
+    if (on && !pressed) face = _gamelib_ui_darken(color, 24);
+    else if (pressed) face = _gamelib_ui_darken(color, 36);
+    else if (hovered) face = _gamelib_ui_lighten(color, 46);
+
+    _gamelib_ui_draw_bevel_rect(this, x, y, w, h, face, bevelPressed);
+
+    int textWidth = _gamelib_ui_text_width(text);
+    int textHeight = _gamelib_ui_text_height(text);
+    int textX = x + ((w - textWidth) > 0 ? (w - textWidth) / 2 : 0);
+    int textY = y + ((h - textHeight) > 0 ? (h - textHeight) / 2 : 0);
+    if (bevelPressed) {
+        textX += 1;
+        textY += 1;
+    }
+
+    uint32_t textColor = _gamelib_ui_button_text_color(face);
+    uint32_t shadowColor = (textColor == COLOR_WHITE)
+        ? COLOR_ARGB(160, 0, 0, 0)
+        : COLOR_ARGB(112, 255, 255, 255);
+    _gamelib_ui_draw_text_with_shadow(this, textX, textY, text, textColor, shadowColor);
+
+    bool changed = false;
+    if (mouseReleased && _uiActiveId == id) {
+        if (hovered) {
+            *toggled = !*toggled;
             changed = true;
         }
         _uiActiveId = 0;

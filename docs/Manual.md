@@ -65,8 +65,10 @@
 | ----------------------------------------- | ---------- |
 | `Button(x, y, w, h, text, color)`         | 绘制立即模式按钮；在按钮内按下并在按钮内松开左键时返回 `true` |
 | `Checkbox(x, y, text, &checked)`          | 绘制立即模式复选框；触发时翻转 `checked` 并返回 `true` |
+| `RadioBox(x, y, text, &value, index)`     | 绘制立即模式单选框；触发时设置 `value = index` 并返回 `true`；同一组共享同一个 `value` 指针实现互斥 |
+| `ToggleButton(x, y, w, h, text, &toggled, color)` | 绘制立即模式开关按钮；触发时翻转 `toggled` 并返回 `true`；`toggled` 为 `true` 时按钮持续凹陷 |
 
-`Button` 使用内置 8x8 点阵字库绘制 ASCII 标签，视觉状态分为 `normal`、`hover`、`pressed` 三种；传入的 `color` 作为基色，悬停与按下效果由库内部自动做提亮 / 压暗和立体边框运算。`Checkbox` 也使用内置 8x8 点阵字库，点击区域包含方框和文字标签，稳定状态分为 `checked`、`checked-hover`、`unchecked`、`unchecked-hover` 四种，选中时在方框中心绘制实心块。
+`Button` 使用内置 8x8 点阵字库绘制 ASCII 标签，视觉状态分为 `normal`、`hover`、`pressed` 三种；传入的 `color` 作为基色，悬停与按下效果由库内部自动做提亮 / 压暗和立体边框运算。`Checkbox` 也使用内置 8x8 点阵字库，点击区域包含方框和文字标签，稳定状态分为 `checked`、`checked-hover`、`unchecked`、`unchecked-hover` 四种，选中时在方框中心绘制实心块。`RadioBox` 与 `Checkbox` 布局一致但以圆形轮廓与中心圆点代替方框与实心块；同一组的多个 `RadioBox` 共享同一个 `int *value`，触发时写入 `*value = index` 实现互斥。`ToggleButton` 与 `Button` 视觉一致但增加了 `toggled` 状态：`toggled` 为 `true` 时按钮持续显示凹陷外观（立体边框反转 + 面色压暗 + 文字偏移），点击时翻转 `toggled` 值。
 
 ### 精灵
 
