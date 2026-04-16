@@ -1,7 +1,9 @@
 //=====================================================================
 //
 // GameLib.SDL.h - A single-header cross-platform game library
+//
 // Homepage: https://github.com/skywind3000/GameLib
+// Copyright (c) 2026 skywind3000 (Lin Wei)
 //
 // Uses SDL2 as the platform backend and keeps a GameLib-style API.
 // The current scaffold already supports window creation, input,
