@@ -2,11 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![C++ Standard](https://img.shields.io/badge/C%2B%2B-11-blue.svg)](https://en.cppreference.com/w/cpp/11) [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078d4.svg)](https://github.com/skywind3000/GameLib) [![Header Only](https://img.shields.io/badge/Header--Only-single%20file-green.svg)](GameLib.h) [![No Dependencies](https://img.shields.io/badge/Dependencies-zero-brightgreen.svg)](https://github.com/skywind3000/GameLib) [![GCC 4.9+](https://img.shields.io/badge/GCC-4.9%2B-orange.svg?logo=gnu)](https://gcc.gnu.org/)
 
-A game development library for C++ beginners. Just one header file, no installation needed — write `#include "GameLib.h"` and start making games.
+A game development library for C++ beginners. Just one header file, no installation needed -- write `include "GameLib.h"` and start making games.
 
-Many C++ beginners report that, unlike other languages where you can get something running in a few lines, the most painful experience is spending weeks learning C++ and still only being able to `cout` a line of text in a black console window. Building "a real program" feels impossibly far away, with almost zero positive feedback. Want to use SDL or SFML? Just setting up the environment and linking libraries is enough to exhaust you — before you've even written your first line of game logic, you already want to give up.
+Many C++ beginners report that, unlike other languages where you can get something running in a few lines, the most painful experience is spending weeks learning C++ and still only being able to `cout` a line of text in a black console window. Building "a real program" feels impossibly far away, with almost zero positive feedback. Want to use SDL or SFML? Just setting up the environment and linking libraries is enough to exhaust you -- before you've even written your first line of game logic, you already want to give up.
 
-GameLib was born to eliminate that pain. Drop `GameLib.h` into your project folder and, in ten lines of code, draw a colorful circle controlled by the keyboard — windows, drawing, keyboard, mouse, sprites, sound, collision detection, all included. No SDK to download, no paths to configure, no libraries to link. It's like PyGame for the C++ world: hiding all the complexity and leaving only the fun of making games.
+GameLib was born to eliminate that pain. Drop `GameLib.h` into your project folder and, in ten lines of code, draw a colorful circle controlled by the keyboard -- windows, drawing, keyboard, mouse, sprites, sound, collision detection, all included. No SDK to download, no paths to configure, no libraries to link. It's like PyGame for the C++ world: hiding all the complexity and leaving only the fun of making games.
 
 ![](assets/demo.png)
 
@@ -45,18 +45,11 @@ Compile:
 g++ main.cpp -o game.exe
 ```
 
-Or with an optional (recommended) flag:
-
-```bash
-g++ main.cpp -o game.exe -mwindows
-```
-
-That's it. No project configuration, no SDK downloads, no IDE settings to tweak, and no manually writing `-lgdi32 -lwinmm -lgdiplus -lole32` linker flags. Run it and control the ball with arrow keys:
+No extra compiler flags needed at all. Many C++ beginners don't even know how to compile from the command line -- they just click "Compile & Run" in Dev-C++. Asking them to add linker flags like `-ld3d9x` the way other libraries do would turn away a huge number of people. That's why this library works entirely with default compiler settings: all dependencies are dynamically loaded at runtime.
 
 ![](https://skywind3000.github.io/images/p/gamelib/demo1.png)
 
-The `-mwindows` flag (which you can even omit) launches the program as a standard Windows GUI application without popping up a console window. When creating a Windows Application project in Dev-Cpp, this flag is usually added automatically.
-
+A few lines of code and you get instant visual feedback.
 
 
 ## Why Build This?
@@ -78,9 +71,10 @@ It's specifically designed for **Dev C++** (the IDE used in many school programm
 
 - Single header file `GameLib.h`, copy and use
 - No dependency on SDL / SFML / DirectX / OpenGL
-- No need for `-lgdi32 -lwinmm -lgdiplus -lole32` linker flags; `-mwindows` recommended
+- No need for `-lgdi32 -lwinmm -lgdiplus -lole32` linker flags; you can optionally add `-mwindows` (which suppresses the console window on launch)
 - Compatible with Dev C++'s bundled GCC 4.9.2
-- The repository also includes a standalone `GameLib.SDL.h` version, depending on SDL2 libraries, targeting cross-platform scenarios (Linux / macOS).
+
+(Note: By popular demand, a SDL2 version `GameLib.SDL.h` has been ported for Linux/macOS, also as a single header file. See [SDL2PORT.md](SDL2PORT.md) for details.)
 
 ### Ready-to-Use Drawing
 
@@ -97,41 +91,41 @@ It's specifically designed for **Dev C++** (the IDE used in many school programm
 - Support for 8-bit palette, 24-bit, 32-bit images (auto-converted to 32-bit ARGB)
 - 24-bit images automatically get full alpha channel (set to opaque)
 - Flip, Color Key transparency, Alpha blending, region clipping, scaling, frame-based drawing
-- Managed by integer IDs — no need to understand pointers or object lifetimes
+- Managed by integer IDs -- no need to understand pointers or object lifetimes
 
 ### Keyboard and Mouse
 
-- `IsKeyDown` — held-down detection
-- `IsKeyPressed` — single press detection (triggers once on press)
-- `IsKeyReleased` / `IsMouseReleased` — single release detection
+- `IsKeyDown` -- held-down detection
+- `IsKeyPressed` -- single press detection (triggers once on press)
+- `IsKeyReleased` / `IsMouseReleased` -- single release detection
 - Mouse position, three-button state, and scroll wheel delta
 - `IsActive()` checks whether the window has focus, handy for pausing games
 - Predefined constants for all common keys: `KEY_A`\~`KEY_Z`, arrow keys, F1\~F12
 
 ### Sound
 
-- `PlayWAV` — play sound effects (WAV format, asynchronous, returns success status)
-- `PlayMusic` / `StopMusic` — play background music (MP3/MIDI/WAV, explicit MCI type by extension; MIDI looping uses notify replay)
-- `IsMusicPlaying()` — query current background music playback status
+- `PlayWAV` -- play sound effects (WAV format, asynchronous, returns success status)
+- `PlayMusic` / `StopMusic` -- play background music (MP3/MIDI/WAV; MCI type selected by file extension, MIDI looping uses notify replay)
+- `IsMusicPlaying()` -- query current background music playback status
 - Sound effects and music on independent channels, no interference
 
 ### Game Utilities
 
-- `Random(min, max)` — random numbers
-- `RectOverlap` / `CircleOverlap` — collision detection
-- `Distance` — distance between two points
-- `DrawGrid` / `FillCell` — grid drawing (great for Tetris, board games)
-- `GetDeltaTime` / `GetFPS` — frame time and frame rate
+- `Random(min, max)` -- random numbers
+- `RectOverlap` / `CircleOverlap` -- collision detection
+- `Distance` -- distance between two points
+- `DrawGrid` / `FillCell` -- grid drawing (great for Tetris, board games)
+- `GetDeltaTime` / `GetFPS` -- frame time and frame rate
 
 ### Tilemap System
 
-- `CreateTilemap` — create tile maps from tileset sprites
-- `SaveTilemap` / `LoadTilemap` — save or load plain-text `.glm` map data
-- `SetTile` / `GetTile` / `FillTileRect` / `ClearTilemap` — set tiles individually or in bulk
-- `GetTilemapCols` / `GetTilemapRows` / `GetTileSize` — read map metadata
-- `WorldToTileCol` / `WorldToTileRow` / `GetTileAtPixel` — convert pixel coordinates to tile coordinates
-- `DrawTilemap` — render maps with opaque, Color Key, or Alpha modes
-- Only draws tiles visible on screen — no lag even with large maps
+- `CreateTilemap` -- create tile maps from tileset sprites
+- `SaveTilemap` / `LoadTilemap` -- save or load plain-text `.glm` map data
+- `SetTile` / `GetTile` / `FillTileRect` / `ClearTilemap` -- set tiles individually or in bulk
+- `GetTilemapCols` / `GetTilemapRows` / `GetTileSize` -- read map metadata
+- `WorldToTileCol` / `WorldToTileRow` / `GetTileAtPixel` -- convert pixel coordinates to tile coordinates
+- `DrawTilemap` -- render maps with opaque, Color Key, or Alpha modes
+- Only draws tiles visible on screen -- no lag even with large maps
 - Easily implement side-scrolling and parallax with camera offset
 
 
@@ -318,8 +312,14 @@ The `examples/` directory contains 19 progressive examples that demonstrate Game
 Compile any example:
 
 ```bash
-g++ -o demo.exe examples/01_hello.cpp -mwindows
+g++ -o 03_shapes.exe examples/03_shapes.cpp -mwindows
 ```
+
+Run it:
+
+![](https://skywind3000.github.io/images/p/gamelib/shapes.png)
+
+That's it.
 
 ### Getting Started
 
@@ -461,7 +461,7 @@ The default `DrawSprite(id, x, y)` uses the opaque fast path. If your assets rel
 |-|-|
 | `PlayWAV(filename, loop)` | Play sound effect, returns `true` on success |
 | `StopWAV()` | Stop sound effects |
-| `PlayMusic(filename, loop)` | Play background music (MP3/MIDI/WAV, explicit MCI type by extension; MIDI looping uses notify replay), returns `true` on success |
+| `PlayMusic(filename, loop)` | Play background music (MP3/MIDI/WAV; MCI type selected by file extension, MIDI looping uses notify replay), returns `true` on success |
 | `StopMusic()` | Stop background music |
 | `IsMusicPlaying()` | Whether music is currently playing |
 | `PlayBeep(freq, duration)` | Beep |
