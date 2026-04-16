@@ -4,10 +4,10 @@
 
 `GameLib.h` 是一个面向初学者的 **单头文件游戏库**，基于 Win32 GDI，无需 SDL 或其他第三方库。目标用户是小朋友，用于在 Dev C++ (GCC 4.9.2) 环境下开发简单游戏（空战、俄罗斯方块、走迷宫等）。
 
-**当前版本**: `1.4.3`
-**最后修改**: 2026/04/15
+**当前版本**: `1.5.0`
+**最后修改**: 2026/04/16
 
-当前 `1.4.3` 已包含鼠标显示/隐藏、`ShowMessage()`、椭圆绘制、图元 Alpha 混合、`DrawPrintfFont()`、Clip Rectangle 裁剪矩形、裁剪后的 `DrawLine()`、`LoadSprite()` 的超大尺寸拒绝、默认 sprite/tilemap 快路径“无 Alpha 且无 ColorKey 时直接覆盖目标像素”的实现规则，以及最近调整后的 Tilemap 语义：不再缓存 `tilesetTileCount`，允许地图数据保存超出当前 tileset 范围的非负 `tileId`，并在 `DrawTilemap()` 绘制时按 live tileset 尺寸跳过不可用瓦片。
+当前 `1.5.0` 已包含鼠标显示/隐藏、`ShowMessage()`、椭圆绘制、图元 Alpha 混合、`DrawPrintfFont()`、Clip Rectangle 裁剪矩形、裁剪后的 `DrawLine()`、`LoadSprite()` 的超大尺寸拒绝、默认 sprite/tilemap 快路径“无 Alpha 且无 ColorKey 时直接覆盖目标像素”的实现规则，以及最近调整后的 Tilemap 语义：不再缓存 `tilesetTileCount`，允许地图数据保存超出当前 tileset 范围的非负 `tileId`，并在 `DrawTilemap()` 绘制时按 live tileset 尺寸跳过不可用瓦片。
 
 ---
 

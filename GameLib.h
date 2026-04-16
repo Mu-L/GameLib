@@ -57,8 +57,8 @@
 
 // Version Info
 #define GAMELIB_VERSION_MAJOR     1
-#define GAMELIB_VERSION_MINOR     4
-#define GAMELIB_VERSION_PATCH     3
+#define GAMELIB_VERSION_MINOR     5
+#define GAMELIB_VERSION_PATCH     0
 
 
 //---------------------------------------------------------------------
