@@ -1,4 +1,4 @@
-// 21_ui_controls.cpp - Basic UI Controls Demo
+// 15_ui_controls.cpp - Basic UI Controls Demo
 //
 // Demonstrates the immediate-mode Button, Checkbox, RadioBox
 // and ToggleButton helpers.
@@ -11,9 +11,14 @@
 // Learn: Button, Checkbox, RadioBox, ToggleButton,
 //        release-trigger UI, built-in 8x8 UI labels
 //
-// Compile: g++ -o 21_ui_controls.exe 21_ui_controls.cpp -mwindows
+// Compile (Win32): g++ -o 15_ui_controls.exe 15_ui_controls.cpp -mwindows
+// Compile (SDL):   g++ -std=c++11 -O2 -o 15_ui_controls 15_ui_controls.cpp -lSDL2
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#else
+#include "../GameLib.SDL.h"
+#endif
 
 static void DrawPanel(GameLib &game, int x, int y, int w, int h, const char *title)
 {
@@ -35,28 +40,21 @@ static void DrawBackdrop(GameLib &game, bool showGrid)
     if (!showGrid) return;
 
     uint32_t gridColor = COLOR_ARGB(70, 120, 138, 168);
-    for (int x = 0; x < game.GetWidth(); x += 20) {
+    for (int x = 0; x < game.GetWidth(); x += 20)
         game.DrawLine(x, 0, x, game.GetHeight() - 1, gridColor);
-    }
-    for (int y = 0; y < game.GetHeight(); y += 20) {
+    for (int y = 0; y < game.GetHeight(); y += 20)
         game.DrawLine(0, y, game.GetWidth() - 1, y, gridColor);
-    }
 }
 
 int main()
 {
     GameLib game;
-    game.Open(960, 520, "21 - UI Controls", true);
+    game.Open(960, 520, "15 - UI Controls", true);
 
-    bool musicOn = true;
-    bool sfxOn = true;
-    bool showGrid = false;
-    bool hardMode = false;
+    bool musicOn = true, sfxOn = true, showGrid = false, hardMode = false;
     int difficulty = 0;
-    bool paused = false;
-    bool turbo = false;
-    int startCount = 0;
-    int resetCount = 0;
+    bool paused = false, turbo = false;
+    int startCount = 0, resetCount = 0;
     const char *lastEvent = "NONE";
 
     while (!game.IsClosed()) {
@@ -75,38 +73,27 @@ int main()
         DrawPanel(game, 836, 76, 104, 420, "Status");
 
         if (game.Button(40, 116, 144, 32, "START", COLOR_RGB(52, 150, 92))) {
-            startCount++;
-            lastEvent = "START";
+            startCount++; lastEvent = "START";
         }
         if (game.Button(40, 160, 144, 32, "RESET", COLOR_RGB(196, 142, 46))) {
-            musicOn = true;
-            sfxOn = true;
-            showGrid = false;
-            hardMode = false;
-            resetCount++;
-            lastEvent = "RESET";
+            musicOn = true; sfxOn = true; showGrid = false; hardMode = false;
+            resetCount++; lastEvent = "RESET";
         }
-        if (game.Button(40, 204, 144, 32, "QUIT", COLOR_RGB(180, 76, 76))) {
-            break;
-        }
+        if (game.Button(40, 204, 144, 32, "QUIT", COLOR_RGB(180, 76, 76))) break;
 
         game.DrawText(40, 264, "The button label uses", COLOR_LIGHT_GRAY);
         game.DrawText(40, 280, "the built-in 8x8 font.", COLOR_LIGHT_GRAY);
         game.DrawText(40, 320, "Visual states:", COLOR_WHITE);
         game.DrawText(40, 340, "NORMAL / HOVER / PRESSED", COLOR_LIGHT_GRAY);
 
-        if (game.Checkbox(244, 116, "MUSIC", &musicOn)) {
+        if (game.Checkbox(244, 116, "MUSIC", &musicOn))
             lastEvent = musicOn ? "MUSIC ON" : "MUSIC OFF";
-        }
-        if (game.Checkbox(244, 152, "SFX", &sfxOn)) {
+        if (game.Checkbox(244, 152, "SFX", &sfxOn))
             lastEvent = sfxOn ? "SFX ON" : "SFX OFF";
-        }
-        if (game.Checkbox(244, 188, "SHOW GRID", &showGrid)) {
+        if (game.Checkbox(244, 188, "SHOW GRID", &showGrid))
             lastEvent = showGrid ? "GRID ON" : "GRID OFF";
-        }
-        if (game.Checkbox(244, 224, "HARD MODE", &hardMode)) {
+        if (game.Checkbox(244, 224, "HARD MODE", &hardMode))
             lastEvent = hardMode ? "HARD ON" : "HARD OFF";
-        }
 
         game.DrawText(244, 276, "Click covers box", COLOR_WHITE);
         game.DrawText(244, 292, "and label.", COLOR_LIGHT_GRAY);
@@ -114,16 +101,9 @@ int main()
         game.DrawText(244, 340, "CHK/UNCHK", COLOR_LIGHT_GRAY);
         game.DrawText(244, 356, "+ hover.", COLOR_LIGHT_GRAY);
 
-        // ---- RadioBox ----
-        if (game.RadioBox(448, 116, "EASY", &difficulty, 0)) {
-            lastEvent = "EASY";
-        }
-        if (game.RadioBox(448, 152, "MEDIUM", &difficulty, 1)) {
-            lastEvent = "MEDIUM";
-        }
-        if (game.RadioBox(448, 188, "HARD", &difficulty, 2)) {
-            lastEvent = "HARD";
-        }
+        if (game.RadioBox(448, 116, "EASY", &difficulty, 0)) lastEvent = "EASY";
+        if (game.RadioBox(448, 152, "MEDIUM", &difficulty, 1)) lastEvent = "MEDIUM";
+        if (game.RadioBox(448, 188, "HARD", &difficulty, 2)) lastEvent = "HARD";
 
         game.DrawText(448, 232, "Same group shares", COLOR_WHITE);
         game.DrawText(448, 248, "one int *value.", COLOR_LIGHT_GRAY);
@@ -133,13 +113,10 @@ int main()
         game.DrawText(448, 336, "Circle + dot", COLOR_WHITE);
         game.DrawText(448, 352, "instead of box.", COLOR_LIGHT_GRAY);
 
-        // ---- ToggleButton ----
-        if (game.ToggleButton(652, 116, 144, 32, "PAUSE", &paused, COLOR_RGB(180, 76, 76))) {
+        if (game.ToggleButton(652, 116, 144, 32, "PAUSE", &paused, COLOR_RGB(180, 76, 76)))
             lastEvent = paused ? "PAUSED" : "RESUME";
-        }
-        if (game.ToggleButton(652, 160, 144, 32, "TURBO", &turbo, COLOR_RGB(52, 150, 92))) {
+        if (game.ToggleButton(652, 160, 144, 32, "TURBO", &turbo, COLOR_RGB(52, 150, 92)))
             lastEvent = turbo ? "TURBO ON" : "TURBO OFF";
-        }
 
         game.DrawText(652, 216, "Toggled=ON shows", COLOR_WHITE);
         game.DrawText(652, 232, "sunken bevel.", COLOR_LIGHT_GRAY);

@@ -1,18 +1,28 @@
-// 15_font_text.cpp - Font Text and UI Demo
+// 11_font_text.cpp - Font Text and UI Demo
 //
 // Demonstrates DrawTextFont, DrawPrintfFont, text measurement,
 // ShowMouse, and ShowMessage.
+// Learn: DrawTextFont, DrawPrintfFont, GetTextWidthFont, ShowMouse, ShowMessage
 //
-// Compile: g++ -o 15_font_text.exe 15_font_text.cpp -mwindows
+// Compile (Win32): g++ -o 11_font_text.exe 11_font_text.cpp -mwindows
+// Compile (SDL):   g++ -std=c++11 -O2 -o 11_font_text 11_font_text.cpp -lSDL2 -lSDL2_ttf
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#define FONT_MONO    "Consolas"
+#define FONT_CJK     "MS Gothic"
+#else
+#include "../GameLib.SDL.h"
+#define FONT_MONO    "monospace"
+#define FONT_CJK     "sans-serif"
+#endif
 
 int main()
 {
     GameLib game;
-    game.Open(720, 520, "15 - Font Text and UI", true);
+    game.Open(720, 520, "11 - Font Text and UI", true);
     game.ShowFps(true);
-    
+
     bool mouseVisible = true;
     int lastMessageResult = MESSAGEBOX_RESULT_OK;
 
@@ -31,7 +41,7 @@ int main()
         }
         if (game.IsKeyPressed(KEY_M)) {
             lastMessageResult = game.ShowMessage(
-                "GameLib 1.3 now has DrawPrintfFont, ShowMouse and ShowMessage.",
+                "GameLib now has DrawPrintfFont, ShowMouse and ShowMessage.",
                 "New UI APIs",
                 MESSAGEBOX_OK);
         }
@@ -56,8 +66,8 @@ int main()
         game.FillRect(18, 104, 420, 214, COLOR_ARGB(205, 26, 34, 46));
         game.DrawRect(18, 104, 420, 214, COLOR_LIGHT_GRAY);
         game.DrawText(28, 114, "Scalable font text", COLOR_WHITE);
-        game.DrawTextFont(28, 142, "可缩放字体 - 支持中文与符号", COLOR_YELLOW, 24);
-        game.DrawTextFont(28, 178, "日本語も表示できます", COLOR_CYAN, "MS Gothic", 22);
+        game.DrawTextFont(28, 142, "Scalable font - supports Unicode", COLOR_YELLOW, 24);
+        game.DrawTextFont(28, 178, "CJK font rendering test", COLOR_CYAN, FONT_CJK, 22);
         game.DrawTextFont(28, 214, "Different sizes: 18 / 24 / 32", COLOR_GREEN, 18);
         game.DrawTextFont(28, 240, "Different sizes: 18 / 24 / 32", COLOR_GREEN, 24);
         game.DrawTextFont(28, 274, "Different sizes: 18 / 24 / 32", COLOR_GREEN, 32);
@@ -66,23 +76,23 @@ int main()
         game.DrawRect(456, 104, 246, 214, COLOR_LIGHT_GRAY);
         game.DrawText(466, 114, "DrawPrintfFont", COLOR_WHITE);
         game.DrawPrintfFont(470, 146, COLOR_GOLD, 24, "Score: %05d", score);
-        game.DrawPrintfFont(470, 180, COLOR_SKY_BLUE, "Consolas", 18,
+        game.DrawPrintfFont(470, 180, COLOR_SKY_BLUE, FONT_MONO, 18,
                             "Time: %5.1f s", timeSec);
-        game.DrawPrintfFont(470, 206, COLOR_WHITE, "Consolas", 18,
+        game.DrawPrintfFont(470, 206, COLOR_WHITE, FONT_MONO, 18,
                             "FPS: %5.1f", game.GetFPS());
-        game.DrawPrintfFont(470, 232, COLOR_PINK, "Consolas", 18,
+        game.DrawPrintfFont(470, 232, COLOR_PINK, FONT_MONO, 18,
                             "Mouse: %3d, %3d", game.GetMouseX(), game.GetMouseY());
-        game.DrawPrintfFont(470, 258, COLOR_LIGHT_GRAY, "Consolas", 18,
+        game.DrawPrintfFont(470, 258, COLOR_LIGHT_GRAY, FONT_MONO, 18,
                             "Cursor: %s", mouseVisible ? "visible" : "hidden");
-        game.DrawPrintfFont(470, 284, COLOR_LIGHT_GRAY, "Consolas", 18,
+        game.DrawPrintfFont(470, 284, COLOR_LIGHT_GRAY, FONT_MONO, 18,
                             "Last dialog: %s", resultText);
 
         game.FillRect(18, 338, 684, 136, COLOR_ARGB(205, 28, 36, 48));
         game.DrawRect(18, 338, 684, 136, COLOR_LIGHT_GRAY);
         game.DrawText(28, 348, "Interactive UI helpers", COLOR_WHITE);
-        game.DrawTextFont(28, 376, "H: 切换鼠标显示    M: 弹出 OK 消息框", COLOR_CYAN, 22);
-        game.DrawTextFont(28, 408, "Y: 弹出 YES/NO 消息框并同步鼠标状态", COLOR_CYAN, 22);
-        game.DrawTextFont(28, 440, "ESC: 退出示例", COLOR_GRAY, 18);
+        game.DrawTextFont(28, 376, "H: Toggle mouse  M: Show OK dialog", COLOR_CYAN, 22);
+        game.DrawTextFont(28, 408, "Y: Show YES/NO dialog and sync mouse state", COLOR_CYAN, 22);
+        game.DrawTextFont(28, 440, "ESC: Quit", COLOR_GRAY, 18);
 
         game.Update();
         game.WaitFrame(60);

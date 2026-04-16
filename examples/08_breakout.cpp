@@ -1,11 +1,17 @@
-// 12_breakout.cpp - Breakout
+// 08_breakout.cpp - Breakout
 //
 // Classic Breakout: bounce the ball with paddle, destroy all bricks to win.
 // Learn: in-depth collision detection, multi-object management, game state
 //
-// Compile: g++ -o 12_breakout.exe 12_breakout.cpp -mwindows
+// Compile (Win32): g++ -o 08_breakout.exe 08_breakout.cpp -mwindows
+// Compile (SDL):   g++ -std=c++11 -O2 -o 08_breakout 08_breakout.cpp -lSDL2
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#else
+#include "../GameLib.SDL.h"
+#endif
+
 #include <math.h>
 #include <stdio.h>
 
@@ -20,27 +26,19 @@
 static const char *ChooseExistingPath(const char *pathA, const char *pathB)
 {
     FILE *file = fopen(pathA, "rb");
-    if (file != NULL) {
-        fclose(file);
-        return pathA;
-    }
-
+    if (file != NULL) { fclose(file); return pathA; }
     file = fopen(pathB, "rb");
-    if (file != NULL) {
-        fclose(file);
-        return pathB;
-    }
-
+    if (file != NULL) { fclose(file); return pathB; }
     return pathA;
 }
 
 int main()
 {
     GameLib game;
-    game.Open(640, 480, "12 - Breakout", true);
+    game.Open(640, 480, "08 - Breakout", true);
 
-    const char *launchSfx = ChooseExistingPath("../assets/sound/jump.wav", "assets/sound/jump.wav");
-    const char *bounceSfx = ChooseExistingPath("../assets/sound/hit.wav", "assets/sound/hit.wav");
+    const char *launchSfx  = ChooseExistingPath("../assets/sound/jump.wav", "assets/sound/jump.wav");
+    const char *bounceSfx  = ChooseExistingPath("../assets/sound/hit.wav", "assets/sound/hit.wav");
     const char *brickRowSfx[BRICK_ROWS] = {
         ChooseExistingPath("../assets/sound/note_do_high.wav", "assets/sound/note_do_high.wav"),
         ChooseExistingPath("../assets/sound/note_si.wav", "assets/sound/note_si.wav"),
@@ -50,31 +48,23 @@ int main()
         ChooseExistingPath("../assets/sound/note_mi.wav", "assets/sound/note_mi.wav")
     };
     const char *loseLifeSfx = ChooseExistingPath("../assets/sound/explosion.wav", "assets/sound/explosion.wav");
-    const char *restartSfx = ChooseExistingPath("../assets/sound/click.wav", "assets/sound/click.wav");
+    const char *restartSfx  = ChooseExistingPath("../assets/sound/click.wav", "assets/sound/click.wav");
     const char *gameOverSfx = ChooseExistingPath("../assets/sound/game_over.wav", "assets/sound/game_over.wav");
-    const char *winSfx = ChooseExistingPath("../assets/sound/victory.wav", "assets/sound/victory.wav");
+    const char *winSfx      = ChooseExistingPath("../assets/sound/victory.wav", "assets/sound/victory.wav");
 
-    // Bricks
     bool bricks[BRICK_ROWS][BRICK_COLS];
     uint32_t brickColors[] = {COLOR_RED, COLOR_ORANGE, COLOR_YELLOW, COLOR_GREEN, COLOR_CYAN, COLOR_PURPLE};
 
-    // Paddle
     int padW = 80, padH = 12;
     int padX = 280, padY = 450;
 
-    // Ball
     float ballX = 320, ballY = 430;
     float ballVX = 3.0f, ballVY = -4.0f;
     int ballR = 5;
 
-    int score = 0;
-    int lives = 3;
-    int totalBricks = 0;
-    bool started = false;  // ball launched?
-    bool gameOver = false;
-    bool gameWin = false;
+    int score = 0, lives = 3, totalBricks = 0;
+    bool started = false, gameOver = false, gameWin = false;
 
-    // Initialize bricks
     for (int r = 0; r < BRICK_ROWS; r++)
         for (int c = 0; c < BRICK_COLS; c++)
             bricks[r][c] = true;
@@ -82,111 +72,78 @@ int main()
 
     while (!game.IsClosed()) {
         const char *sfxToPlay = NULL;
-
         if (game.IsKeyPressed(KEY_ESCAPE)) break;
 
         if (!gameOver && !gameWin) {
-            // Paddle movement
             if (game.IsKeyDown(KEY_LEFT))  padX -= 6;
             if (game.IsKeyDown(KEY_RIGHT)) padX += 6;
             if (padX < 0) padX = 0;
             if (padX + padW > game.GetWidth()) padX = game.GetWidth() - padW;
 
-            // Launch
             if (!started) {
                 ballX = (float)(padX + padW / 2);
                 ballY = (float)(padY - ballR - 1);
                 if (game.IsKeyPressed(KEY_SPACE)) {
                     started = true;
-                    ballVX = 3.0f;
-                    ballVY = -4.0f;
+                    ballVX = 3.0f; ballVY = -4.0f;
                     sfxToPlay = launchSfx;
                 }
             } else {
-                // Move ball
                 ballX += ballVX;
                 ballY += ballVY;
 
-                // Left/right walls
                 if (ballX - ballR < 0) {
-                    ballX = (float)ballR;
-                    ballVX = -ballVX;
+                    ballX = (float)ballR; ballVX = -ballVX;
                     if (!sfxToPlay) sfxToPlay = bounceSfx;
                 }
                 if (ballX + ballR > game.GetWidth()) {
-                    ballX = (float)(game.GetWidth() - ballR);
-                    ballVX = -ballVX;
+                    ballX = (float)(game.GetWidth() - ballR); ballVX = -ballVX;
                     if (!sfxToPlay) sfxToPlay = bounceSfx;
                 }
-
-                // Top
                 if (ballY - ballR < 0) {
-                    ballY = (float)ballR;
-                    ballVY = -ballVY;
+                    ballY = (float)ballR; ballVY = -ballVY;
                     if (!sfxToPlay) sfxToPlay = bounceSfx;
                 }
-
-                // Bottom (lose ball)
                 if (ballY + ballR > game.GetHeight()) {
                     lives--;
-                    if (lives <= 0) {
-                        gameOver = true;
-                        sfxToPlay = gameOverSfx;
-                    } else {
-                        started = false;
-                        ballVX = 3.0f;
-                        ballVY = -4.0f;
-                        sfxToPlay = loseLifeSfx;
-                    }
+                    if (lives <= 0) { gameOver = true; sfxToPlay = gameOverSfx; }
+                    else { started = false; ballVX = 3.0f; ballVY = -4.0f; sfxToPlay = loseLifeSfx; }
                 }
 
-                // Paddle collision
                 if (ballVY > 0 &&
                     ballX + ballR > padX && ballX - ballR < padX + padW &&
                     ballY + ballR >= padY && ballY + ballR <= padY + padH + 4) {
                     ballVY = -ballVY;
                     ballY = (float)(padY - ballR);
-                    // Adjust horizontal speed based on where ball hit paddle
-                    float hitPos = (ballX - padX) / padW;  // 0.0 ~ 1.0
+                    float hitPos = (ballX - padX) / padW;
                     ballVX = (hitPos - 0.5f) * 8.0f;
                     if (!sfxToPlay) sfxToPlay = bounceSfx;
                 }
 
-                // Brick collision
                 for (int r = 0; r < BRICK_ROWS; r++) {
                     for (int c = 0; c < BRICK_COLS; c++) {
                         if (!bricks[r][c]) continue;
-
                         int bx = BRICK_OFFSET_X + c * (BRICK_W + BRICK_GAP);
                         int by = BRICK_OFFSET_Y + r * (BRICK_H + BRICK_GAP);
 
-                        // Ball center vs brick rectangle
                         if (ballX + ballR > bx && ballX - ballR < bx + BRICK_W &&
                             ballY + ballR > by && ballY - ballR < by + BRICK_H) {
                             bricks[r][c] = false;
                             totalBricks--;
-                            score += 10 * (BRICK_ROWS - r);  // top rows score higher
+                            score += 10 * (BRICK_ROWS - r);
 
-                            // Simple bounce direction detection
                             float overlapLeft   = (ballX + ballR) - bx;
                             float overlapRight  = (bx + BRICK_W) - (ballX - ballR);
                             float overlapTop    = (ballY + ballR) - by;
                             float overlapBottom = (by + BRICK_H) - (ballY - ballR);
-
                             float minOverlapX = (overlapLeft < overlapRight) ? overlapLeft : overlapRight;
                             float minOverlapY = (overlapTop < overlapBottom) ? overlapTop : overlapBottom;
 
-                            if (minOverlapX < minOverlapY)
-                                ballVX = -ballVX;
-                            else
-                                ballVY = -ballVY;
+                            if (minOverlapX < minOverlapY) ballVX = -ballVX;
+                            else ballVY = -ballVY;
 
-                            if (totalBricks <= 0) {
-                                gameWin = true;
-                                sfxToPlay = winSfx;
-                            } else {
-                                sfxToPlay = brickRowSfx[r];
-                            }
+                            if (totalBricks <= 0) { gameWin = true; sfxToPlay = winSfx; }
+                            else sfxToPlay = brickRowSfx[r];
                             goto done_collision;
                         }
                     }
@@ -194,34 +151,25 @@ int main()
                 done_collision:;
             }
         } else {
-            // Restart
             if (game.IsKeyPressed(KEY_R)) {
                 for (int r = 0; r < BRICK_ROWS; r++)
                     for (int c = 0; c < BRICK_COLS; c++)
                         bricks[r][c] = true;
                 totalBricks = BRICK_ROWS * BRICK_COLS;
-                score = 0;
-                lives = 3;
-                padX = 280;
-                started = false;
-                gameOver = false;
-                gameWin = false;
+                score = 0; lives = 3; padX = 280;
+                started = false; gameOver = false; gameWin = false;
                 sfxToPlay = restartSfx;
             }
         }
 
-        if (sfxToPlay)
-            game.PlayWAV(sfxToPlay);
+        if (sfxToPlay) game.PlayWAV(sfxToPlay);
 
-        // --- Drawing ---
         game.Clear(COLOR_BLACK);
 
-        // Top info
         game.DrawPrintf(10, 10, COLOR_WHITE, "Score: %d", score);
         game.DrawPrintf(10, 25, COLOR_GREEN, "Lives: %d", lives);
         game.DrawPrintf(game.GetWidth() - 130, 10, COLOR_GRAY, "Bricks: %d", totalBricks);
 
-        // Bricks
         for (int r = 0; r < BRICK_ROWS; r++) {
             for (int c = 0; c < BRICK_COLS; c++) {
                 if (!bricks[r][c]) continue;
@@ -232,13 +180,9 @@ int main()
             }
         }
 
-        // Paddle
         game.FillRect(padX, padY, padW, padH, COLOR_WHITE);
-
-        // Ball
         game.FillCircle((int)ballX, (int)ballY, ballR, COLOR_WHITE);
 
-        // Hint
         if (!started && !gameOver && !gameWin)
             game.DrawText(240, 420, "SPACE to launch", COLOR_YELLOW);
 
@@ -249,7 +193,6 @@ int main()
             game.DrawPrintf(260, 245, COLOR_WHITE, "Score: %d", score);
             game.DrawText(245, 262, "R to restart", COLOR_YELLOW);
         }
-
         if (gameWin) {
             game.FillRect(200, 200, 240, 80, COLOR_DARK_GRAY);
             game.DrawRect(200, 200, 240, 80, COLOR_WHITE);

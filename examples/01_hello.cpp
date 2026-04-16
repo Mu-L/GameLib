@@ -3,9 +3,14 @@
 // The simplest GameLib program: create a window and display text.
 // Learn: Open, Clear, DrawText, DrawTextScale, Update, WaitFrame, IsClosed
 //
-// Compile: g++ -o 01_hello.exe 01_hello.cpp -mwindows
+// Win32: g++ -o 01_hello.exe 01_hello.cpp -mwindows
+// SDL:   g++ -DUSE_SDL -std=c++11 -O2 -o 01_hello.exe 01_hello.cpp -lSDL2
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#else
+#include "../GameLib.SDL.h"
+#endif
 
 int main()
 {

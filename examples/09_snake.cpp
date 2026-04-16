@@ -1,12 +1,17 @@
-// 11_snake.cpp - Snake Game
+// 09_snake.cpp - Snake Game
 //
 // Classic Snake: use arrow keys to control the snake, eat food to grow,
 // game over if you hit the wall or yourself.
 // Learn: DrawGrid, FillCell, IsKeyPressed, game state machine, timed movement
 //
-// Compile: g++ -o 11_snake.exe 11_snake.cpp -mwindows
+// Win32: g++ -o 09_snake.exe 09_snake.cpp -mwindows
+// SDL:   g++ -DUSE_SDL -std=c++11 -O2 -o 09_snake.exe 09_snake.cpp -lSDL2
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#else
+#include "../GameLib.SDL.h"
+#endif
 
 #define GRID_ROWS 20
 #define GRID_COLS 20
@@ -21,7 +26,7 @@ int main()
     int gridH = GRID_ROWS * CELL_SIZE;
     int winW = gridW + 160;  // leave space for info panel on right
     int winH = gridH + 40;   // leave space for title on top
-    game.Open(winW, winH, "11 - Snake", true);
+    game.Open(winW, winH, "09 - Snake", true);
 
     int gridX = 10, gridY = 30;
 

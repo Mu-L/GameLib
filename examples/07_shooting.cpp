@@ -1,11 +1,16 @@
-// 07_shooting_stars.cpp - Simple Shooter
+// 07_shooting.cpp - Simple Shooter
 //
 // Control a ship to move left/right, press Space to shoot bullets at falling targets.
 // Learn: array for multiple objects, bullet firing, collision destroy, IsKeyPressed
 //
-// Compile: g++ -o 07_shooting_stars.exe 07_shooting_stars.cpp -mwindows
+// Win32: g++ -o 07_shooting.exe 07_shooting.cpp -mwindows
+// SDL:   g++ -DUSE_SDL -std=c++11 -O2 -o 07_shooting.exe 07_shooting.cpp -lSDL2
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#else
+#include "../GameLib.SDL.h"
+#endif
 
 #define MAX_BULLETS 30
 #define MAX_ENEMIES 15

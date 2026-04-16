@@ -1,16 +1,21 @@
-// 05_paint.cpp - Simple Paint
+// 04_paint.cpp - Simple Paint
 //
 // A simple paint program: draw with mouse, change color/brush/clear with keyboard.
 // Learn: GetMouseX/Y, IsMouseDown, IsMouseReleased, GetMouseWheelDelta, IsActive
 //
-// Compile: g++ -o 05_paint.exe 05_paint.cpp -mwindows
+// Win32: g++ -o 04_paint.exe 04_paint.cpp -mwindows
+// SDL:   g++ -DUSE_SDL -std=c++11 -O2 -o 04_paint.exe 04_paint.cpp -lSDL2
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#else
+#include "../GameLib.SDL.h"
+#endif
 
 int main()
 {
     GameLib game;
-    game.Open(640, 480, "05 - Paint", true, true);
+    game.Open(640, 480, "04 - Paint", true, true);
 
     uint32_t palette[] = {
         COLOR_WHITE, COLOR_RED, COLOR_GREEN, COLOR_BLUE,

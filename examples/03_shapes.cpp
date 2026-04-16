@@ -6,9 +6,14 @@
 //        FillCircle, DrawEllipse, FillEllipse, DrawTriangle,
 //        FillTriangle, COLOR_ARGB
 //
-// Compile: g++ -o 03_shapes.exe 03_shapes.cpp -mwindows
+// Win32: g++ -o 03_shapes.exe 03_shapes.cpp -mwindows
+// SDL:   g++ -DUSE_SDL -std=c++11 -O2 -o 03_shapes.exe 03_shapes.cpp -lSDL2
 
+#if defined(_WIN32) && !defined(USE_SDL)
 #include "../GameLib.h"
+#else
+#include "../GameLib.SDL.h"
+#endif
 
 static void DrawCheckerboard(GameLib &game, int x, int y, int w, int h, int cell)
 {
