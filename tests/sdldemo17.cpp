@@ -34,7 +34,7 @@ static void DrawBackdrop(GameLib &game, bool showGrid)
 int main()
 {
     GameLib game;
-    if (game.Open(760, 520, "SDL Demo 17 - UI Controls", true) != 0) {
+    if (game.Open(960, 520, "SDL Demo 17 - UI Controls", true) != 0) {
         return 1;
     }
 
@@ -42,6 +42,9 @@ int main()
     bool sfxOn = true;
     bool showGrid = false;
     bool hardMode = false;
+    int difficulty = 0;
+    bool paused = false;
+    bool turbo = false;
     int startCount = 0;
     int resetCount = 0;
     const char *lastEvent = "NONE";
@@ -51,13 +54,15 @@ int main()
 
         DrawBackdrop(game, showGrid);
 
-        game.FillRect(0, 0, 760, 56, COLOR_RGB(10, 14, 24));
+        game.FillRect(0, 0, 960, 56, COLOR_RGB(10, 14, 24));
         game.DrawTextScale(20, 14, "SDL UI CONTROLS", COLOR_WHITE, 2);
         game.DrawText(20, 40, "Mouse: press inside, release inside to trigger. ESC quits.", COLOR_LIGHT_GRAY);
 
         DrawPanel(game, 20, 76, 184, 420, "Buttons");
-        DrawPanel(game, 224, 76, 244, 420, "Checkboxes");
-        DrawPanel(game, 488, 76, 252, 420, "Status");
+        DrawPanel(game, 224, 76, 184, 420, "Checkboxes");
+        DrawPanel(game, 428, 76, 184, 420, "RadioBox");
+        DrawPanel(game, 632, 76, 184, 420, "Toggle");
+        DrawPanel(game, 836, 76, 104, 420, "Status");
 
         if (game.Button(40, 116, 144, 32, "START", COLOR_RGB(52, 150, 92))) {
             startCount++;
@@ -68,6 +73,9 @@ int main()
             sfxOn = true;
             showGrid = false;
             hardMode = false;
+            difficulty = 0;
+            paused = false;
+            turbo = false;
             resetCount++;
             lastEvent = "RESET";
         }
@@ -93,28 +101,62 @@ int main()
             lastEvent = hardMode ? "HARD ON" : "HARD OFF";
         }
 
-        game.DrawText(244, 276, "Checkbox click area", COLOR_WHITE);
-        game.DrawText(244, 292, "covers box and label.", COLOR_LIGHT_GRAY);
-        game.DrawText(244, 332, "Stable states:", COLOR_WHITE);
-        game.DrawText(244, 352, "CHECKED / UNCHECKED", COLOR_LIGHT_GRAY);
-        game.DrawText(244, 368, "plus hover variants.", COLOR_LIGHT_GRAY);
+        game.DrawText(244, 276, "Click covers box", COLOR_WHITE);
+        game.DrawText(244, 292, "and label.", COLOR_LIGHT_GRAY);
+        game.DrawText(244, 324, "4 states:", COLOR_WHITE);
+        game.DrawText(244, 340, "CHK/UNCHK", COLOR_LIGHT_GRAY);
+        game.DrawText(244, 356, "+ hover.", COLOR_LIGHT_GRAY);
 
-        game.DrawText(508, 116, "LAST EVENT", COLOR_WHITE);
-        game.DrawText(508, 136, lastEvent, COLOR_YELLOW);
-        game.DrawText(508, 176, "BUTTON COUNTS", COLOR_WHITE);
-        game.DrawPrintf(508, 196, COLOR_LIGHT_GRAY, "START: %d", startCount);
-        game.DrawPrintf(508, 212, COLOR_LIGHT_GRAY, "RESET: %d", resetCount);
+        // ---- RadioBox ----
+        if (game.RadioBox(448, 116, "EASY", &difficulty, 0)) {
+            lastEvent = "EASY";
+        }
+        if (game.RadioBox(448, 152, "MEDIUM", &difficulty, 1)) {
+            lastEvent = "MEDIUM";
+        }
+        if (game.RadioBox(448, 188, "HARD", &difficulty, 2)) {
+            lastEvent = "HARD";
+        }
 
-        game.DrawText(508, 252, "CURRENT FLAGS", COLOR_WHITE);
-        game.DrawPrintf(508, 272, COLOR_LIGHT_GRAY, "MUSIC: %s", musicOn ? "ON" : "OFF");
-        game.DrawPrintf(508, 288, COLOR_LIGHT_GRAY, "SFX: %s", sfxOn ? "ON" : "OFF");
-        game.DrawPrintf(508, 304, COLOR_LIGHT_GRAY, "GRID: %s", showGrid ? "ON" : "OFF");
-        game.DrawPrintf(508, 320, COLOR_LIGHT_GRAY, "HARD: %s", hardMode ? "ON" : "OFF");
+        game.DrawText(448, 232, "Same group shares", COLOR_WHITE);
+        game.DrawText(448, 248, "one int *value.", COLOR_LIGHT_GRAY);
+        game.DrawText(448, 280, "Selected:", COLOR_WHITE);
+        const char *diffNames[] = {"EASY", "MEDIUM", "HARD"};
+        game.DrawText(448, 296, diffNames[difficulty], COLOR_YELLOW);
+        game.DrawText(448, 336, "Circle + dot", COLOR_WHITE);
+        game.DrawText(448, 352, "instead of box.", COLOR_LIGHT_GRAY);
 
-        game.DrawText(508, 368, "SDL_ttf is disabled in", COLOR_WHITE);
-        game.DrawText(508, 388, "this demo on purpose.", COLOR_LIGHT_GRAY);
-        game.DrawText(508, 404, "Button / Checkbox still", COLOR_LIGHT_GRAY);
-        game.DrawText(508, 420, "work with DrawText.", COLOR_LIGHT_GRAY);
+        // ---- ToggleButton ----
+        if (game.ToggleButton(652, 116, 144, 32, "PAUSE", &paused, COLOR_RGB(180, 76, 76))) {
+            lastEvent = paused ? "PAUSED" : "RESUME";
+        }
+        if (game.ToggleButton(652, 160, 144, 32, "TURBO", &turbo, COLOR_RGB(52, 150, 92))) {
+            lastEvent = turbo ? "TURBO ON" : "TURBO OFF";
+        }
+
+        game.DrawText(652, 216, "Toggled=ON shows", COLOR_WHITE);
+        game.DrawText(652, 232, "sunken bevel.", COLOR_LIGHT_GRAY);
+        game.DrawText(652, 264, "PAUSED:", COLOR_WHITE);
+        game.DrawText(652, 280, paused ? "YES" : "NO", paused ? COLOR_YELLOW : COLOR_LIGHT_GRAY);
+        game.DrawText(652, 312, "TURBO:", COLOR_WHITE);
+        game.DrawText(652, 328, turbo ? "YES" : "NO", turbo ? COLOR_YELLOW : COLOR_LIGHT_GRAY);
+
+        game.DrawText(856, 116, "LAST EVENT", COLOR_WHITE);
+        game.DrawText(856, 136, lastEvent, COLOR_YELLOW);
+        game.DrawText(856, 176, "COUNTS", COLOR_WHITE);
+        game.DrawPrintf(856, 196, COLOR_LIGHT_GRAY, "START: %d", startCount);
+        game.DrawPrintf(856, 212, COLOR_LIGHT_GRAY, "RESET: %d", resetCount);
+
+        game.DrawText(856, 252, "FLAGS", COLOR_WHITE);
+        game.DrawPrintf(856, 272, COLOR_LIGHT_GRAY, "MUSIC: %s", musicOn ? "ON" : "OFF");
+        game.DrawPrintf(856, 288, COLOR_LIGHT_GRAY, "SFX: %s", sfxOn ? "ON" : "OFF");
+        game.DrawPrintf(856, 304, COLOR_LIGHT_GRAY, "GRID: %s", showGrid ? "ON" : "OFF");
+        game.DrawPrintf(856, 320, COLOR_LIGHT_GRAY, "HARD: %s", hardMode ? "ON" : "OFF");
+
+        game.DrawText(856, 352, "DIFF:", COLOR_WHITE);
+        game.DrawText(856, 368, diffNames[difficulty], COLOR_YELLOW);
+        game.DrawPrintf(856, 384, COLOR_LIGHT_GRAY, "PAUSE:%s", paused ? "Y" : "N");
+        game.DrawPrintf(856, 400, COLOR_LIGHT_GRAY, "TURBO:%s", turbo ? "Y" : "N");
 
         game.Update();
         game.WaitFrame(60);
