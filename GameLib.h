@@ -360,6 +360,10 @@ public:
     void DrawTextScale(int x, int y, const char *text, uint32_t color, int scale);
     void DrawPrintf(int x, int y, uint32_t color, const char *fmt, ...);
 
+    // -------- UI Helpers (built-in 8x8 font) --------
+    bool Button(int x, int y, int w, int h, const char *text, uint32_t color);
+    bool Checkbox(int x, int y, const char *text, bool *checked);
+
     // -------- Font Text Rendering (scalable fonts, Unicode support) --------
     void DrawTextFont(int x, int y, const char *text, uint32_t color, const char *fontName, int fontSize);
     void DrawTextFont(int x, int y, const char *text, uint32_t color, int fontSize);
@@ -537,6 +541,7 @@ private:
     int _mouseButtons[3];
     int _mouseButtons_prev[3];
     int _mouseWheelDelta;
+    uint32_t _uiActiveId;
 
     // timing
     uint64_t _timeStartCounter;
@@ -1086,6 +1091,7 @@ GameLib::GameLib()
     memset(_mouseButtons, 0, sizeof(_mouseButtons));
     memset(_mouseButtons_prev, 0, sizeof(_mouseButtons_prev));
     _mouseWheelDelta = 0;
+    _uiActiveId = 0;
     _timeStartCounter = 0;
     _timePrevCounter = 0;
     _fpsTimeCounter = 0;
@@ -1753,6 +1759,7 @@ int GameLib::Open(int width, int height, const char *title, bool center, bool re
     memset(_mouseButtons, 0, sizeof(_mouseButtons));
     memset(_mouseButtons_prev, 0, sizeof(_mouseButtons_prev));
     _mouseWheelDelta = 0;
+    _uiActiveId = 0;
     ClearClip();
 
     return 0;
@@ -2450,6 +2457,149 @@ void GameLib::FillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, uint3
 // Text Rendering
 //=====================================================================
 
+static uint32_t _gamelib_ui_lighten(uint32_t color, int amount)
+{
+    if (amount <= 0) return color;
+    if (amount > 255) amount = 255;
+
+    int r = COLOR_GET_R(color);
+    int g = COLOR_GET_G(color);
+    int b = COLOR_GET_B(color);
+
+    r += ((255 - r) * amount) / 255;
+    g += ((255 - g) * amount) / 255;
+    b += ((255 - b) * amount) / 255;
+
+    return COLOR_ARGB(COLOR_GET_A(color), r, g, b);
+}
+
+static uint32_t _gamelib_ui_darken(uint32_t color, int amount)
+{
+    if (amount <= 0) return color;
+    if (amount > 255) amount = 255;
+
+    int scale = 255 - amount;
+    int r = (COLOR_GET_R(color) * scale) / 255;
+    int g = (COLOR_GET_G(color) * scale) / 255;
+    int b = (COLOR_GET_B(color) * scale) / 255;
+
+    return COLOR_ARGB(COLOR_GET_A(color), r, g, b);
+}
+
+static int _gamelib_ui_text_width(const char *text)
+{
+    if (!text || !text[0]) return 0;
+
+    int lineWidth = 0;
+    int maxWidth = 0;
+    for (const char *p = text; *p; ++p) {
+        unsigned char ch = (unsigned char)*p;
+        if (ch == '\n') {
+            if (lineWidth > maxWidth) maxWidth = lineWidth;
+            lineWidth = 0;
+            continue;
+        }
+        if (ch >= 32 && ch <= 126) lineWidth += 8;
+    }
+    if (lineWidth > maxWidth) maxWidth = lineWidth;
+    return maxWidth;
+}
+
+static int _gamelib_ui_text_height(const char *text)
+{
+    if (!text || !text[0]) return 0;
+
+    int lines = 1;
+    for (const char *p = text; *p; ++p) {
+        if (*p == '\n') lines++;
+    }
+    return lines * 8 + (lines - 1) * 2;
+}
+
+static uint32_t _gamelib_ui_button_text_color(uint32_t color)
+{
+    int r = COLOR_GET_R(color);
+    int g = COLOR_GET_G(color);
+    int b = COLOR_GET_B(color);
+    int luma = r * 299 + g * 587 + b * 114;
+    return (luma >= 140000) ? COLOR_BLACK : COLOR_WHITE;
+}
+
+static uint32_t _gamelib_ui_make_id(uint32_t kind, int x, int y, int w, int h, const char *text)
+{
+    uint32_t hash = 2166136261u;
+    hash ^= kind; hash *= 16777619u;
+    hash ^= (uint32_t)x; hash *= 16777619u;
+    hash ^= (uint32_t)y; hash *= 16777619u;
+    hash ^= (uint32_t)w; hash *= 16777619u;
+    hash ^= (uint32_t)h; hash *= 16777619u;
+
+    if (text) {
+        for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
+            hash ^= (uint32_t)(*p);
+            hash *= 16777619u;
+        }
+    }
+
+    if (hash == 0) hash = kind ? kind : 1u;
+    return hash;
+}
+
+static void _gamelib_ui_draw_bevel_rect(GameLib *game, int x, int y, int w, int h,
+                                        uint32_t face, bool pressed)
+{
+    if (!game || w <= 0 || h <= 0) return;
+
+    game->FillRect(x, y, w, h, face);
+
+    uint32_t lightOuter = _gamelib_ui_lighten(face, 112);
+    uint32_t lightInner = _gamelib_ui_lighten(face, 56);
+    uint32_t darkOuter = _gamelib_ui_darken(face, 112);
+    uint32_t darkInner = _gamelib_ui_darken(face, 56);
+
+    if (pressed) {
+        uint32_t tmp = lightOuter; lightOuter = darkOuter; darkOuter = tmp;
+        tmp = lightInner; lightInner = darkInner; darkInner = tmp;
+    }
+
+    game->DrawLine(x, y, x + w - 1, y, lightOuter);
+    game->DrawLine(x, y, x, y + h - 1, lightOuter);
+    game->DrawLine(x, y + h - 1, x + w - 1, y + h - 1, darkOuter);
+    game->DrawLine(x + w - 1, y, x + w - 1, y + h - 1, darkOuter);
+
+    if (w > 2 && h > 2) {
+        game->DrawLine(x + 1, y + 1, x + w - 2, y + 1, lightInner);
+        game->DrawLine(x + 1, y + 1, x + 1, y + h - 2, lightInner);
+        game->DrawLine(x + 1, y + h - 2, x + w - 2, y + h - 2, darkInner);
+        game->DrawLine(x + w - 2, y + 1, x + w - 2, y + h - 2, darkInner);
+    }
+}
+
+static void _gamelib_ui_draw_text_with_shadow(GameLib *game, int x, int y, const char *text,
+                                              uint32_t color, uint32_t shadow)
+{
+    if (!game || !text || !text[0]) return;
+    if (COLOR_GET_A(shadow) != 0) game->DrawText(x + 1, y + 1, text, shadow);
+    game->DrawText(x, y, text, color);
+}
+
+static void _gamelib_ui_draw_checkbox_mark(GameLib *game, int x, int y, int size,
+                                           bool pressed, uint32_t color)
+{
+    if (!game || size <= 0) return;
+
+    int markSize = size / 2;
+    if (markSize < 6) markSize = 6;
+    if (markSize > size - 4) markSize = size - 4;
+    int markX = x + (size - markSize) / 2;
+    int markY = y + (size - markSize) / 2;
+    if (pressed) {
+        markX += 1;
+        markY += 1;
+    }
+    game->FillRect(markX, markY, markSize, markSize, color);
+}
+
 void GameLib::DrawText(int x, int y, const char *text, uint32_t color)
 {
     if (!text) return;
@@ -2516,6 +2666,105 @@ void GameLib::DrawPrintf(int x, int y, uint32_t color, const char *fmt, ...)
     va_end(args);
     buf[sizeof(buf) - 1] = '\0';
     DrawText(x, y, buf, color);
+}
+
+bool GameLib::Button(int x, int y, int w, int h, const char *text, uint32_t color)
+{
+    if (w <= 0 || h <= 0) return false;
+
+    uint32_t id = _gamelib_ui_make_id(0x42544E31u, x, y, w, h, text);
+    bool hovered = PointInRect(_mouseX, _mouseY, x, y, w, h);
+    bool mousePressed = IsMousePressed(MOUSE_LEFT);
+    bool mouseReleased = IsMouseReleased(MOUSE_LEFT);
+    bool mouseDown = IsMouseDown(MOUSE_LEFT);
+
+    if (mousePressed && hovered) {
+        _uiActiveId = id;
+    }
+
+    bool pressed = (_uiActiveId == id) && mouseDown && hovered;
+    uint32_t face = color;
+    if (pressed) face = _gamelib_ui_darken(color, 36);
+    else if (hovered) face = _gamelib_ui_lighten(color, 46);
+
+    _gamelib_ui_draw_bevel_rect(this, x, y, w, h, face, pressed);
+
+    int textWidth = _gamelib_ui_text_width(text);
+    int textHeight = _gamelib_ui_text_height(text);
+    int textX = x + ((w - textWidth) > 0 ? (w - textWidth) / 2 : 0);
+    int textY = y + ((h - textHeight) > 0 ? (h - textHeight) / 2 : 0);
+    if (pressed) {
+        textX += 1;
+        textY += 1;
+    }
+
+    uint32_t textColor = _gamelib_ui_button_text_color(face);
+    uint32_t shadowColor = (textColor == COLOR_WHITE)
+        ? COLOR_ARGB(160, 0, 0, 0)
+        : COLOR_ARGB(112, 255, 255, 255);
+    _gamelib_ui_draw_text_with_shadow(this, textX, textY, text, textColor, shadowColor);
+
+    bool clicked = mouseReleased && hovered && (_uiActiveId == id);
+    if (mouseReleased && _uiActiveId == id) {
+        _uiActiveId = 0;
+    }
+    return clicked;
+}
+
+bool GameLib::Checkbox(int x, int y, const char *text, bool *checked)
+{
+    if (!checked) return false;
+
+    const int boxSize = 16;
+    const int gap = (text && text[0]) ? 6 : 0;
+    int labelWidth = _gamelib_ui_text_width(text);
+    int labelHeight = _gamelib_ui_text_height(text);
+    int controlWidth = boxSize + gap + labelWidth;
+    int controlHeight = boxSize;
+    if (labelHeight > controlHeight) controlHeight = labelHeight;
+    if (controlWidth <= 0) controlWidth = boxSize;
+
+    int boxY = y + (controlHeight - boxSize) / 2;
+    int labelY = y + (controlHeight - labelHeight) / 2;
+    if (labelHeight <= 0) labelY = y + (controlHeight - 8) / 2;
+
+    uint32_t id = _gamelib_ui_make_id(0x43484B31u, x, y, controlWidth, controlHeight, text);
+    bool hovered = PointInRect(_mouseX, _mouseY, x, y, controlWidth, controlHeight);
+    bool mousePressed = IsMousePressed(MOUSE_LEFT);
+    bool mouseReleased = IsMouseReleased(MOUSE_LEFT);
+    bool mouseDown = IsMouseDown(MOUSE_LEFT);
+
+    if (mousePressed && hovered) {
+        _uiActiveId = id;
+    }
+
+    bool pressed = (_uiActiveId == id) && mouseDown && hovered;
+    uint32_t boxFace = hovered
+        ? _gamelib_ui_lighten(COLOR_RGB(182, 182, 182), 32)
+        : COLOR_RGB(182, 182, 182);
+    if (pressed) boxFace = _gamelib_ui_darken(boxFace, 28);
+    _gamelib_ui_draw_bevel_rect(this, x, boxY, boxSize, boxSize, boxFace, pressed);
+
+    if (*checked) {
+        uint32_t markColor = hovered ? COLOR_BLACK : COLOR_DARK_GRAY;
+        _gamelib_ui_draw_checkbox_mark(this, x, boxY, boxSize, pressed, markColor);
+    }
+
+    if (text && text[0]) {
+        uint32_t labelColor = hovered ? COLOR_WHITE : COLOR_LIGHT_GRAY;
+        _gamelib_ui_draw_text_with_shadow(this, x + boxSize + gap, labelY, text,
+                                          labelColor, COLOR_ARGB(160, 0, 0, 0));
+    }
+
+    bool changed = false;
+    if (mouseReleased && _uiActiveId == id) {
+        if (hovered) {
+            *checked = !*checked;
+            changed = true;
+        }
+        _uiActiveId = 0;
+    }
+    return changed;
 }
 
 

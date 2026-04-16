@@ -353,6 +353,7 @@ GameLib.SDL.h
 - `GetClipX` / `GetClipY` / `GetClipW` / `GetClipH`
 - `DrawLine` / `DrawRect` / `FillRect` / `DrawCircle` / `FillCircle` / `DrawEllipse` / `FillEllipse` / `DrawTriangle` / `FillTriangle`
 - `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf`
+- `Button` / `Checkbox`
 - `CreateSprite` / `LoadSpriteBMP` / `LoadSprite` / `FreeSprite`
 - `DrawSprite` / `DrawSpriteEx` / `DrawSpriteRegion` / `DrawSpriteRegionEx`
 - `DrawSpriteScaled` / `DrawSpriteRotated` / `DrawSpriteFrame` / `DrawSpriteFrameScaled` / `DrawSpriteFrameRotated`
@@ -582,6 +583,8 @@ SDL 版输入系统要求：
 - `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf` 的内置位图字体逻辑应与 `GameLib.h` 保持一致。
 - 继续使用 ASCII 32~126 的 8x8 点阵数据。
 - 这是 SDL 版始终可用的零外部字体方案。
+- `Button` / `Checkbox` 的标签也固定走这套内置 8x8 字体，因此即使 `SDL_ttf` 被关闭，这两个基础 UI 控件仍然可用。
+- `Button` 与 `Checkbox` 的交互语义与 Win32 版保持一致：Button 使用 `normal / hover / pressed` 三态，并在按钮内松开左键时触发；Checkbox 使用 `checked / checked-hover / unchecked / unchecked-hover` 四种稳定状态，在控件区域内松开左键时翻转 `checked` 指针指向的值并返回 `true`。
 
 ### 8.2 DrawTextFont 的实现原则
 
@@ -867,6 +870,7 @@ int _mouseY;
 int _mouseButtons[3];
 int _mouseButtons_prev[3];
 int _mouseWheelDelta;
+uint32_t _uiActiveId;
 
 // 时间
 uint64_t _timeStartCounter;
@@ -1018,7 +1022,7 @@ static bool _srandDone;
 - `docs/GameLib.SDL.md` 已同步到当前实现状态，仓库根目录也已新增 `SDL2PORT.md` 作为简版移植说明。
 - `AGENTS.md` 已补充 `GameLib.SDL.h` / `docs/GameLib.SDL.md` 的索引与用途。
 - README 仍只保留一句 SDL 产品线提示，主叙事继续突出 Win32 零依赖主线；具体 SDL 编译命令与限制统一放到 `SDL2PORT.md`。
-- `tests/sdldemo1.cpp` ~ `tests/sdldemo16.cpp` 已形成最小 SDL 回归集，其中 `tests/sdldemo5.cpp` 是从 `examples/14_tilemap.cpp` 迁移来的代表性资产示例，`tests/sdldemo6.cpp` 是从 `examples/13_space_shooter.cpp` 迁移来的完整游戏循环示例，`tests/sdldemo7.cpp` 是从 `examples/12_breakout.cpp` 迁移来的经典碰撞/清版示例，`tests/sdldemo8.cpp` 是从 `examples/11_snake.cpp` 迁移来的网格离散移动示例，`tests/sdldemo9.cpp` 是从 `examples/06_catch_fruit.cpp` 迁移来的接取/漏接判定示例，`tests/sdldemo10.cpp` 是从 `examples/09_sprite_animation.cpp` 迁移来的精灵帧动画示例，`tests/sdldemo11.cpp` 是从 `examples/10_sound_demo.cpp` 迁移来的声音演示示例，`tests/sdldemo12.cpp` 是从 `examples/08_sprite_demo.cpp` 迁移来的精灵基础展示示例，`tests/sdldemo13.cpp` 是从 `examples/16_playsound.cpp` 迁移来的最小音效触发示例，`tests/sdldemo14.cpp` 是从 `examples/03_shapes.cpp` 迁移来的基础图元与 primitive alpha 展示示例，`tests/sdldemo15.cpp` 是从 `examples/19_clip_tilemap.cpp` 迁移来的裁剪矩形、Tilemap、字体与图元组合示例，`tests/sdldemo16.cpp` 是为 `DrawSpriteRotated` / `DrawSpriteFrameRotated` 新增的独立旋转示例。
+- `tests/sdldemo1.cpp` ~ `tests/sdldemo17.cpp` 已形成最小 SDL 回归集，其中 `tests/sdldemo5.cpp` 是从 `examples/14_tilemap.cpp` 迁移来的代表性资产示例，`tests/sdldemo6.cpp` 是从 `examples/13_space_shooter.cpp` 迁移来的完整游戏循环示例，`tests/sdldemo7.cpp` 是从 `examples/12_breakout.cpp` 迁移来的经典碰撞/清版示例，`tests/sdldemo8.cpp` 是从 `examples/11_snake.cpp` 迁移来的网格离散移动示例，`tests/sdldemo9.cpp` 是从 `examples/06_catch_fruit.cpp` 迁移来的接取/漏接判定示例，`tests/sdldemo10.cpp` 是从 `examples/09_sprite_animation.cpp` 迁移来的精灵帧动画示例，`tests/sdldemo11.cpp` 是从 `examples/10_sound_demo.cpp` 迁移来的声音演示示例，`tests/sdldemo12.cpp` 是从 `examples/08_sprite_demo.cpp` 迁移来的精灵基础展示示例，`tests/sdldemo13.cpp` 是从 `examples/16_playsound.cpp` 迁移来的最小音效触发示例，`tests/sdldemo14.cpp` 是从 `examples/03_shapes.cpp` 迁移来的基础图元与 primitive alpha 展示示例，`tests/sdldemo15.cpp` 是从 `examples/19_clip_tilemap.cpp` 迁移来的裁剪矩形、Tilemap、字体与图元组合示例，`tests/sdldemo16.cpp` 是为 `DrawSpriteRotated` / `DrawSpriteFrameRotated` 新增的独立旋转示例，`tests/sdldemo17.cpp` 是为 `Button` / `Checkbox` 新增的独立 UI 控件示例。
 - 其中 `tests/sdldemo5.cpp` ~ `tests/sdldemo13.cpp` 已全部完成用户实机运行验证；说明 SDL 版当前不仅能编译，也已经覆盖了真实素材路径、完整小游戏循环、经典碰撞/清版、网格离散移动、接取判定、精灵基础绘制、精灵帧动画以及声音控制等实际使用场景。
 - 本阶段收口结论：`GameLib.SDL.h` 已具备独立产品线的最小可维护状态，后续工作可以从“补齐代表性回归入口”切换到“按具体差异或新需求增量演进”。
 

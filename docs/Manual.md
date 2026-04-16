@@ -59,6 +59,15 @@
 | `GetTextWidthFont(text, fontSize)` / `GetTextHeightFont(text, fontSize)` | 用默认字体测量文字尺寸 |
 | `GetTextWidthFont(text, fontName, fontSize)` / `GetTextHeightFont(text, fontName, fontSize)` | 用指定字体测量文字尺寸 |
 
+### UI
+
+| 函数                                      | 说明       |
+| ----------------------------------------- | ---------- |
+| `Button(x, y, w, h, text, color)`         | 绘制立即模式按钮；在按钮内按下并在按钮内松开左键时返回 `true` |
+| `Checkbox(x, y, text, &checked)`          | 绘制立即模式复选框；触发时翻转 `checked` 并返回 `true` |
+
+`Button` 使用内置 8x8 点阵字库绘制 ASCII 标签，视觉状态分为 `normal`、`hover`、`pressed` 三种；传入的 `color` 作为基色，悬停与按下效果由库内部自动做提亮 / 压暗和立体边框运算。`Checkbox` 也使用内置 8x8 点阵字库，点击区域包含方框和文字标签，稳定状态分为 `checked`、`checked-hover`、`unchecked`、`unchecked-hover` 四种，选中时在方框中心绘制实心块。
+
 ### 精灵
 
 | 函数                                         | 说明                            |

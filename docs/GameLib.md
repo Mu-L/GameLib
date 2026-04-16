@@ -261,6 +261,7 @@ int _mouseX, _mouseY;   // 鼠标坐标
 int _mouseButtons[3];   // 鼠标三键状态
 int _mouseButtons_prev[3]; // 上一帧鼠标状态（用于边沿检测）
 int _mouseWheelDelta;   // 自上次 Update() 以来累计的滚轮增量
+uint32_t _uiActiveId;   // 当前由鼠标左键按住的 UI 控件 ID（Button / Checkbox）
 
 // 时间
 uint64_t _timeStartCounter; // Open() 时的高精度计数器值
@@ -473,6 +474,21 @@ static bool _srandDone; // srand 是否已初始化
 - 格式化输出，类似 `printf`，支持 `%d`, `%s`, `%f` 等格式符
 - 内部使用 `vsnprintf`（1024 字节缓冲），格式化后调用 `DrawText` 绘制
 - 方便在屏幕上显示变量值、分数、调试信息等
+
+#### `bool Button(int x, int y, int w, int h, const char *text, uint32_t color)`
+- 立即模式按钮；默认文字始终使用内嵌 8x8 位图字体（ASCII 32~126），不走 `DrawTextFont`
+- 只有“按钮内按下鼠标左键，再在按钮内松开鼠标左键”时才返回 `true`
+- 视觉状态分为 `normal`、`hover`、`pressed` 三种；`pressed` 表示当前正由左键按住，事件本身仍在松开时触发
+- `color` 作为按钮基色；悬停与按下的明暗变化由库内部对 RGB 分量自动提亮 / 压暗得到，并叠加经典立体像素边框
+- 按下后拖出按钮区域不会触发；拖回区域内并松开仍可触发
+
+#### `bool Checkbox(int x, int y, const char *text, bool *checked)`
+- 立即模式复选框；默认文字同样使用内嵌 8x8 位图字体（ASCII 32~126）
+- `checked` 必须为非空指针；函数在本帧发生勾选状态变化时返回 `true`
+- 在控件区域内按下左键并在控件区域内松开时，会翻转 `*checked`
+- 点击区域覆盖 16x16 方框和右侧文字标签，便于菜单和设置页直接使用
+- 稳定状态分为 `checked`、`checked-hover`、`unchecked`、`unchecked-hover` 四种；按下时叠加轻微内凹反馈
+- 选中态用中心实心块表示，而不是勾号
 
 ### 6.5 字体文字渲染（当前 Windows 后端用 GDI 实现）
 
