@@ -81,7 +81,7 @@ GameLib.h
 │       ├── 窗口管理 (Open, IsClosed, Update, WaitFrame)
 │       ├── 帧缓冲操作 (Clear, SetPixel, GetPixel, Clip Rectangle)
 │       ├── 图形绘制 (Line, Rect, Circle, Triangle)
-│       ├── 文字渲染 (DrawText, DrawNumber, DrawTextScale, DrawPrintf)
+│       ├── 文字渲染 (DrawText, DrawNumber, DrawTextScale, DrawPrintf, DrawPrintfScale)
 │       ├── 字体文字渲染 (DrawTextFont, DrawPrintfFont, GetTextWidthFont, GetTextHeightFont)
 │       ├── 精灵系统 (Create, Load, Free, Draw, Region, Scale, Frame)
 │       ├── 输入系统 (Key, Mouse, Released, Wheel, Active)
@@ -482,6 +482,10 @@ static bool _srandDone; // srand 是否已初始化
 - 格式化输出，类似 `printf`，支持 `%d`, `%s`, `%f` 等格式符
 - 内部使用 `vsnprintf`（1024 字节缓冲），格式化后调用 `DrawText` 绘制
 - 方便在屏幕上显示变量值、分数、调试信息等
+
+#### `void DrawPrintfScale(int x, int y, uint32_t color, int scale, const char *fmt, ...)`
+- 放大版格式化输出，格式化后调用 `DrawTextScale` 绘制
+- 每个字体像素变为 scale × scale 的矩形，适合放大显示分数、标题等
 
 ### 6.5 字体文字渲染（当前 Windows 后端用 GDI 实现）
 

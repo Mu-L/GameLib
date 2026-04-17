@@ -352,7 +352,7 @@ GameLib.SDL.h
 - `Clear` / `SetPixel` / `GetPixel` / `SetClip` / `ClearClip` / `GetClip`
 - `GetClipX` / `GetClipY` / `GetClipW` / `GetClipH` / `Screenshot`
 - `DrawLine` / `DrawRect` / `FillRect` / `DrawCircle` / `FillCircle` / `DrawEllipse` / `FillEllipse` / `DrawTriangle` / `FillTriangle`
-- `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf`
+- `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf` / `DrawPrintfScale`
 - `Button` / `Checkbox` / `RadioBox` / `ToggleButton`
 - `CreateSprite` / `LoadSpriteBMP` / `LoadSprite` / `FreeSprite`
 - `DrawSprite` / `DrawSpriteEx` / `DrawSpriteRegion` / `DrawSpriteRegionEx`
@@ -589,7 +589,7 @@ SDL 版输入系统要求：
 
 ### 8.1 内置 8x8 字体
 
-- `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf` 的内置位图字体逻辑应与 `GameLib.h` 保持一致。
+- `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf` / `DrawPrintfScale` 的内置位图字体逻辑应与 `GameLib.h` 保持一致。
 - 继续使用 ASCII 32~126 的 8x8 点阵数据。
 - 这是 SDL 版始终可用的零外部字体方案。
 - `Button` / `Checkbox` / `RadioBox` / `ToggleButton` 的标签也固定走这套内置 8x8 字体，因此即使 `SDL_ttf` 被关闭，这四个基础 UI 控件仍然可用。
@@ -979,7 +979,7 @@ static bool _srandDone;
 - 键盘鼠标输入
 - `Clear` / `SetPixel` / `GetPixel`
 - `DrawLine` / `DrawRect` / `FillRect` / `DrawCircle` / `FillCircle` / `DrawEllipse` / `FillEllipse`
-- `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf`
+- `DrawText` / `DrawNumber` / `DrawTextScale` / `DrawPrintf` / `DrawPrintfScale`
 - `ShowMouse`
 
 目标：
