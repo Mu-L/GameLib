@@ -140,9 +140,10 @@ g++ -o 03_shapes.exe examples/03_shapes.cpp -mwindows
 **SDL 版**：Linux/macOS/Windows，需要 SDL2 及可选扩展（详见 [SDL2PORT.md](SDL2PORT.md)）。
 
 
-## API 速查
+## 文档入口
 
-完整的 API 接口说明见 [docs/Manual.md](docs/Manual.md)。
+- [docs/quickref.md](docs/quickref.md) - API 快速检索；
+- [docs/manual.md](docs/manual.md) - 完整的接口说明；
 
 
 ## 资源推荐
