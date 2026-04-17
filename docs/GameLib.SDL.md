@@ -998,7 +998,7 @@ static bool _srandDone;
 目标：
 
 - 让 sprite demo、animation、tilemap 类示例可迁移。
-- 当前状态：已完成，`CreateSprite`、`LoadSpriteBMP`、`LoadSprite`、`DrawSprite*`、`CreateTilemap` / `SaveTilemap` / `LoadTilemap` / `DrawTilemap` 已落地；由 `examples/` 下的统一示例覆盖回归（如 `10_tilemap.cpp`、`05_sprites.cpp` 等）。
+- 当前状态：已完成，`CreateSprite`、`LoadSpriteBMP`、`LoadSprite`、`DrawSprite*`、`CreateTilemap` / `SaveTilemap` / `LoadTilemap` / `DrawTilemap` 已落地；由 `examples/` 下的统一示例覆盖回归（如 `demo_sdl.cpp`）。
 - Tilemap 侧现在允许保留超出当前 tileset 范围的非负 `tileId`；`DrawTilemap()` 在绘制前按 live tileset sprite 尺寸即时计算可用瓦片数，并跳过当前不可绘制的格子，避免 sprite 槽位释放重建后访问越界像素。
 
 ### 阶段 3：字体与音频（已完成）
@@ -1015,7 +1015,7 @@ static bool _srandDone;
 
 - 补齐跨平台版本最容易有差异的部分。
 - 当前状态：已完成。`DrawTextFont` / `DrawPrintfFont`、字体测量、best-effort 字体解析、`PlayWAV`、`PlayMusic`、`PlayBeep`、`ShowMessage` 都已落地。
-- 回归入口：`examples/` 下的统一示例（如 `11_font_text.cpp`、`06_sound.cpp` 等）。
+- 回归入口：`examples/` 下的统一示例 `demo_sdl.cpp` 进行。
 
 ### 阶段 4：文档与示例迁移（当前阶段目标已完成）
 
@@ -1050,6 +1050,8 @@ static bool _srandDone;
 - 音频相关改动：优先回归 `examples/06_sound.cpp`。
 - 游戏循环、碰撞和输入相关改动：优先回归 `examples/07_shooting.cpp`、`examples/08_breakout.cpp`、`examples/09_snake.cpp`、`examples/14_space_shooter.cpp`。
 - UI 控件相关改动：优先回归 `examples/15_ui_controls.cpp`。
+
+回归时需要加上编译参数 `-DUSE_SDL=1` ，来显示启用 SDL 分支；
 
 ---
 

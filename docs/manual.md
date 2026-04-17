@@ -1497,7 +1497,7 @@ bool IsKeyDown(int key) const;
 
 **函数声明**
 ```cpp
-bool IsKeyPressed(int key) const
+bool IsKeyPressed(int key) const;
 ```
 
 **参数**
@@ -1518,7 +1518,7 @@ bool IsKeyPressed(int key) const
 
 **函数声明**
 ```cpp
-bool IsKeyReleased(int key) const
+bool IsKeyReleased(int key) const;
 ```
 
 **参数**
@@ -1539,8 +1539,8 @@ bool IsKeyReleased(int key) const
 
 **函数声明**
 ```cpp
-int GetMouseX() const
-int GetMouseY() const
+int GetMouseX() const;
+int GetMouseY() const;
 ```
 
 **参数**
@@ -1562,7 +1562,7 @@ int GetMouseY() const
 
 **函数声明**
 ```cpp
-bool IsMouseDown(int button) const
+bool IsMouseDown(int button) const;
 ```
 
 **参数**
@@ -1583,7 +1583,7 @@ bool IsMouseDown(int button) const
 
 **函数声明**
 ```cpp
-bool IsMousePressed(int button) const
+bool IsMousePressed(int button) const;
 ```
 
 **参数**
@@ -1604,7 +1604,7 @@ bool IsMousePressed(int button) const
 
 **函数声明**
 ```cpp
-bool IsMouseReleased(int button) const
+bool IsMouseReleased(int button) const;
 ```
 
 **参数**
@@ -1625,7 +1625,7 @@ bool IsMouseReleased(int button) const
 
 **函数声明**
 ```cpp
-int GetMouseWheelDelta() const
+int GetMouseWheelDelta() const;
 ```
 
 **参数**
@@ -1647,7 +1647,7 @@ int GetMouseWheelDelta() const
 
 **函数声明**
 ```cpp
-bool IsActive() const
+bool IsActive() const;
 ```
 
 **参数**
@@ -1671,7 +1671,7 @@ bool IsActive() const
 
 **函数声明**
 ```cpp
-void PlayBeep(int frequency, int duration)
+void PlayBeep(int frequency, int duration);
 ```
 
 **参数**
@@ -1692,7 +1692,7 @@ void PlayBeep(int frequency, int duration)
 
 **函数声明**
 ```cpp
-bool PlayWAV(const char *filename, bool loop = false)
+bool PlayWAV(const char *filename, bool loop = false);
 ```
 
 **参数**
@@ -1718,7 +1718,7 @@ bool PlayWAV(const char *filename, bool loop = false)
 
 **函数声明**
 ```cpp
-void StopWAV()
+void StopWAV();
 ```
 
 **参数**
@@ -1735,7 +1735,7 @@ void StopWAV()
 
 **函数声明**
 ```cpp
-bool PlayMusic(const char *filename, bool loop = true)
+bool PlayMusic(const char *filename, bool loop = true);
 ```
 
 **参数**
@@ -1761,7 +1761,7 @@ bool PlayMusic(const char *filename, bool loop = true)
 
 **函数声明**
 ```cpp
-void StopMusic()
+void StopMusic();
 ```
 
 **参数**
@@ -1778,7 +1778,7 @@ void StopMusic()
 
 **函数声明**
 ```cpp
-bool IsMusicPlaying() const
+bool IsMusicPlaying() const;
 ```
 
 **参数**
@@ -1798,7 +1798,7 @@ bool IsMusicPlaying() const
 
 **函数声明**
 ```cpp
-int CreateTilemap(int cols, int rows, int tileSize, int tilesetId)
+int CreateTilemap(int cols, int rows, int tileSize, int tilesetId);
 ```
 
 **参数**
@@ -1826,7 +1826,7 @@ tileset 精灵按 `tileSize` 切分瓦片，编号从 0 开始。所有格子初
 
 **函数声明**
 ```cpp
-bool SaveTilemap(const char *filename, int mapId) const
+bool SaveTilemap(const char *filename, int mapId) const;
 ```
 
 **参数**
@@ -1852,7 +1852,7 @@ bool SaveTilemap(const char *filename, int mapId) const
 
 **函数声明**
 ```cpp
-int LoadTilemap(const char *filename, int tilesetId)
+int LoadTilemap(const char *filename, int tilesetId);
 ```
 
 **参数**
@@ -1878,7 +1878,7 @@ int LoadTilemap(const char *filename, int tilesetId)
 
 **函数声明**
 ```cpp
-void FreeTilemap(int mapId)
+void FreeTilemap(int mapId);
 ```
 
 **参数**
@@ -1902,7 +1902,7 @@ void FreeTilemap(int mapId)
 
 **函数声明**
 ```cpp
-void SetTile(int mapId, int col, int row, int tileId)
+void SetTile(int mapId, int col, int row, int tileId);
 ```
 
 **参数**
@@ -1929,7 +1929,7 @@ void SetTile(int mapId, int col, int row, int tileId)
 
 **函数声明**
 ```cpp
-int GetTile(int mapId, int col, int row) const
+int GetTile(int mapId, int col, int row) const;
 ```
 
 **参数**
@@ -1952,8 +1952,8 @@ int GetTile(int mapId, int col, int row) const
 
 **函数声明**
 ```cpp
-int GetTilemapCols(int mapId) const
-int GetTilemapRows(int mapId) const
+int GetTilemapCols(int mapId) const;
+int GetTilemapRows(int mapId) const;
 ```
 
 **参数**
@@ -1974,7 +1974,7 @@ int GetTilemapRows(int mapId) const
 
 **函数声明**
 ```cpp
-int GetTileSize(int mapId) const
+int GetTileSize(int mapId) const;
 ```
 
 **参数**
@@ -1995,8 +1995,8 @@ int GetTileSize(int mapId) const
 
 **函数声明**
 ```cpp
-int WorldToTileCol(int mapId, int x) const
-int WorldToTileRow(int mapId, int y) const
+int WorldToTileCol(int mapId, int x) const;
+int WorldToTileRow(int mapId, int y) const;
 ```
 
 **参数**
@@ -2023,7 +2023,7 @@ int WorldToTileRow(int mapId, int y) const
 
 **函数声明**
 ```cpp
-int GetTileAtPixel(int mapId, int x, int y) const
+int GetTileAtPixel(int mapId, int x, int y) const;
 ```
 
 **参数**
@@ -2050,7 +2050,7 @@ int GetTileAtPixel(int mapId, int x, int y) const
 
 **函数声明**
 ```cpp
-void FillTileRect(int mapId, int col, int row, int cols, int rows, int tileId)
+void FillTileRect(int mapId, int col, int row, int cols, int rows, int tileId);
 ```
 
 **参数**
@@ -2079,7 +2079,7 @@ void FillTileRect(int mapId, int col, int row, int cols, int rows, int tileId)
 
 **函数声明**
 ```cpp
-void ClearTilemap(int mapId, int tileId = -1)
+void ClearTilemap(int mapId, int tileId = -1);
 ```
 
 **参数**
@@ -2104,7 +2104,7 @@ void ClearTilemap(int mapId, int tileId = -1)
 
 **函数声明**
 ```cpp
-void DrawTilemap(int mapId, int x, int y, int flags = 0)
+void DrawTilemap(int mapId, int x, int y, int flags = 0);
 ```
 
 **参数**
@@ -2133,7 +2133,7 @@ void DrawTilemap(int mapId, int x, int y, int flags = 0)
 
 **函数声明**
 ```cpp
-void SetScene(int scene)
+void SetScene(int scene);
 ```
 
 **参数**
@@ -2157,7 +2157,7 @@ void SetScene(int scene)
 
 **函数声明**
 ```cpp
-int GetScene() const
+int GetScene() const;
 ```
 
 **参数**
@@ -2175,7 +2175,7 @@ int GetScene() const
 
 **函数声明**
 ```cpp
-bool IsSceneChanged() const
+bool IsSceneChanged() const;
 ```
 
 **参数**
@@ -2197,7 +2197,7 @@ bool IsSceneChanged() const
 
 **函数声明**
 ```cpp
-int GetPreviousScene() const
+int GetPreviousScene() const;
 ```
 
 **参数**
@@ -2217,7 +2217,7 @@ int GetPreviousScene() const
 
 **函数声明**
 ```cpp
-bool Button(int x, int y, int w, int h, const char *text, uint32_t color)
+bool Button(int x, int y, int w, int h, const char *text, uint32_t color);
 ```
 
 **参数**
@@ -2247,7 +2247,7 @@ bool Button(int x, int y, int w, int h, const char *text, uint32_t color)
 
 **函数声明**
 ```cpp
-bool Checkbox(int x, int y, const char *text, bool *checked)
+bool Checkbox(int x, int y, const char *text, bool *checked);
 ```
 
 **参数**
@@ -2275,7 +2275,7 @@ bool Checkbox(int x, int y, const char *text, bool *checked)
 
 **函数声明**
 ```cpp
-bool RadioBox(int x, int y, const char *text, int *value, int index)
+bool RadioBox(int x, int y, const char *text, int *value, int index);
 ```
 
 **参数**
@@ -2304,7 +2304,7 @@ bool RadioBox(int x, int y, const char *text, int *value, int index)
 
 **函数声明**
 ```cpp
-bool ToggleButton(int x, int y, int w, int h, const char *text, bool *toggled, uint32_t color)
+bool ToggleButton(int x, int y, int w, int h, const char *text, bool *toggled, uint32_t color);
 ```
 
 **参数**
@@ -2341,7 +2341,7 @@ bool ToggleButton(int x, int y, int w, int h, const char *text, bool *toggled, u
 
 **函数声明**
 ```cpp
-static bool SaveInt(const char *filename, const char *key, int value)
+static bool SaveInt(const char *filename, const char *key, int value);
 ```
 
 **参数**
@@ -2368,7 +2368,7 @@ static bool SaveInt(const char *filename, const char *key, int value)
 
 **函数声明**
 ```cpp
-static bool SaveFloat(const char *filename, const char *key, float value)
+static bool SaveFloat(const char *filename, const char *key, float value);
 ```
 
 **参数**
@@ -2395,7 +2395,7 @@ static bool SaveFloat(const char *filename, const char *key, float value)
 
 **函数声明**
 ```cpp
-static bool SaveString(const char *filename, const char *key, const char *value)
+static bool SaveString(const char *filename, const char *key, const char *value);
 ```
 
 **参数**
@@ -2422,7 +2422,7 @@ static bool SaveString(const char *filename, const char *key, const char *value)
 
 **函数声明**
 ```cpp
-static int LoadInt(const char *filename, const char *key, int defaultValue = 0)
+static int LoadInt(const char *filename, const char *key, int defaultValue = 0);
 ```
 
 **参数**
@@ -2445,7 +2445,7 @@ static int LoadInt(const char *filename, const char *key, int defaultValue = 0)
 
 **函数声明**
 ```cpp
-static float LoadFloat(const char *filename, const char *key, float defaultValue = 0.0f)
+static float LoadFloat(const char *filename, const char *key, float defaultValue = 0.0f);
 ```
 
 **参数**
@@ -2468,7 +2468,7 @@ static float LoadFloat(const char *filename, const char *key, float defaultValue
 
 **函数声明**
 ```cpp
-static const char *LoadString(const char *filename, const char *key, const char *defaultValue = "")
+static const char *LoadString(const char *filename, const char *key, const char *defaultValue = "");
 ```
 
 **参数**
@@ -2491,7 +2491,7 @@ static const char *LoadString(const char *filename, const char *key, const char 
 
 **函数声明**
 ```cpp
-static bool HasSaveKey(const char *filename, const char *key)
+static bool HasSaveKey(const char *filename, const char *key);
 ```
 
 **参数**
@@ -2513,7 +2513,7 @@ static bool HasSaveKey(const char *filename, const char *key)
 
 **函数声明**
 ```cpp
-static bool DeleteSaveKey(const char *filename, const char *key)
+static bool DeleteSaveKey(const char *filename, const char *key);
 ```
 
 **参数**
