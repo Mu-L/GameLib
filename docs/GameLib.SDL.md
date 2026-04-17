@@ -791,10 +791,10 @@ SDL 版音频继续保持“简单高层 API”风格：
 
 说明：
 
-- 实际支持格式取决于 `SDL_mixer` 编译时启用的解码器
-- `_EnsureMixerReady()` 调用 `Mix_Init()` 时请求所有可用解码器标志（OGG/MP3/FLAC/MID），并将返回值保存为 `_mixerInitFlags`
-- `PlayMusic()` 在加载前根据 `_mixerInitFlags` 检查文件扩展名对应的解码器是否已成功初始化：若对应标志位为 0，则直接拒绝并返回 `false`
-- WAV 始终由 SDL_mixer 原生支持，不需要额外解码器标志
+- `_EnsureMixerReady()` 调用 `Mix_Init()` 时请求所有解码器（FLAC/MID/MOD/MP3/OGG/OPUS），返回值保存为 `_mixerInitFlags`，仅包含当前平台成功初始化的标志位
+- `PlayMusic()` 在加载前根据文件扩展名和 `_mixerInitFlags` 判断对应解码器是否可用：标志位为 0 时直接拒绝并返回 `false`
+- WAV 始终由 SDL_mixer 内置支持，不需要解码器标志
+- MIDI 支持取决于平台：Linux 需要 timidity 或 native MIDI 服务，Windows 可用 native MIDI
 
 ### 10.4 PlayBeep
 
@@ -946,6 +946,9 @@ static bool _srandDone;
 - `SDL_mixer` 实际支持的编码格式与其编译选项和系统动态库有关。
 - `PlayMusic()` 通过 `Mix_Init()` 返回值 (`_mixerInitFlags`) 动态判断当前平台是否支持 MIDI/MP3/OGG/FLAC；对应标志位为 0 时会明确拒绝该格式文件。
 - WAV 不依赖任何外部解码器，始终可用。
+- MIDI 支持具有平台依赖性：
+  - Linux：需要系统安装 timidity 或提供 native MIDI 服务，否则 `MIX_INIT_MID` 不会被返回
+  - Windows：可用 native MIDI，`MIX_INIT_MID` 通常会被返回
 
 ### 13.3 窗口管理器行为会略有差别
 
@@ -1043,7 +1046,7 @@ static bool _srandDone;
 以下项目仍属于“已知差异或可继续完善项”，但不阻塞 SDL 版当前作为独立产品线使用：
 
 - 字体家族名解析虽然已经有 best-effort 候选链，但不同平台上的字形、回退顺序与最终命中字库仍不保证完全一致。
-- `PlayMusic()` 的成功率仍受 `SDL_mixer` 在目标机器上的解码器支持影响；当前实现通过 `Mix_Init()` 返回值动态检测格式支持，缺少对应解码器时返回 `false`。仓库内回归样例主要验证了 WAV 路径。
+- `PlayMusic()` 通过 `Mix_Init()` 返回值动态检测格式支持，缺少对应解码器时返回 `false`。MIDI 在 Windows 上通常可用（native MIDI），在 Linux 上需要 timidity；OGG/MP3/FLAC 取决于 SDL_mixer 编译选项。仓库内回归样例主要验证了 WAV 路径。
 - `LoadSpriteBMP()` 当前依赖 SDL 的 BMP 解码结果，而不是复刻 `GameLib.h` 的自有 BMP 解析实现；若后续发现具体兼容差异，再按案例补齐。
 
 ### 14.6 建议回归顺序
