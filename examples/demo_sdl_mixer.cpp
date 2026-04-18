@@ -1,11 +1,11 @@
-// 06_sound.cpp - Sound Demo
+// demo_sdl_mixer.cpp - Sound Demo (SDL-only)
 //
-// Demo GameLib sound features: beep, WAV sound effects, background music.
+// Demo GameLib sound features: beep, multi-channel WAV, background music.
 // Note: PlayBeep is blocking, will pause briefly when pressed.
-// Learn: PlayBeep, PlayWAV, StopWAV, PlayMusic, StopMusic, IsMusicPlaying
+// Learn: PlayBeep, PlayWAV, StopWAV, IsPlaying, SetVolume, StopAll,
+//        SetMasterVolume, GetMasterVolume, PlayMusic, StopMusic
 //
-// Compile (Win32): g++ -o 06_sound.exe 06_sound.cpp -mwindows
-// Compile (SDL):   g++ -std=c++11 -O2 -o 06_sound 06_sound.cpp -lSDL2
+// Compile (SDL):   g++ -std=c++11 -O2 -o demo_sdl_mixer demo_sdl_mixer.cpp -lSDL2 -lSDL2_mixer
 
 #include "../GameLib.SDL.h"
 
@@ -27,27 +27,18 @@ static const char *ChooseExistingPath(const char *pathA, const char *pathB)
 int main()
 {
     GameLib game;
-    game.Open(640, 480, "06 - Sound Demo", true);
+    game.Open(640, 480, "06 - Sound Demo (SDL)", true);
 
-    bool lastWavOk = true;
+    int lastWavChannel = -1;
     bool lastMusicOk = true;
     const char *wavEffect = ChooseExistingPath("../assets/sound/explosion.wav",
                                                "assets/sound/explosion.wav");
 
-    // MIDI music: Win32 always supports it via MCI; SDL supports it if mixer has MID decoder
-#if defined(_WIN32) && !defined(USE_SDL)
-    const char *musicFile = ChooseExistingPath("../assets/music/battle1.mid",
-                                               "assets/music/battle1.mid");
-    const char *musicLabel = "Background Music (SDL2-mixer):";
-    const char *musicHint  = "(uses assets/music/battle1.mid via SDL2-mixer)";
-    bool hasMusicSupport = true;
-#else
+    // MIDI music: SDL supports it if mixer has MID decoder
     const char *musicFile = ChooseExistingPath("../assets/music/battle1.mid",
                                                "assets/music/battle1.mid");
     const char *musicLabel = "Background Music:";
     const char *musicHint  = "(MIDI: depends on SDL_mixer MID decoder; WAV/OGG always works)";
-    bool hasMusicSupport = true;
-#endif
 
     // Key note frequencies (C4 to B4)
     int notes[] = {262, 294, 330, 349, 392, 440, 494, 523};
@@ -82,56 +73,72 @@ int main()
                 game.PlayBeep(notes[i], 150);
         }
 
-        // === Section 2: WAV Sound Effect ===
-        game.DrawText(40, 230, "WAV Sound Effect:", COLOR_WHITE);
+        // === Section 2: Multi-Channel WAV Sound ===
+        game.DrawText(40, 230, "WAV Sound Effect (multi-channel):", COLOR_WHITE);
 
         game.FillRect(40, 250, 200, 30, COLOR_GREEN);
         game.DrawText(55, 258, "W - Play WAV", COLOR_BLACK);
         if (game.IsKeyPressed(KEY_W))
-            lastWavOk = game.PlayWAV(wavEffect);
+            lastWavChannel = game.PlayWAV(wavEffect, 1, 800);
 
         game.FillRect(260, 250, 200, 30, COLOR_RED);
         game.DrawText(290, 258, "S - Stop WAV", COLOR_BLACK);
-        if (game.IsKeyPressed(KEY_S))
-            game.StopWAV();
+        if (game.IsKeyPressed(KEY_S)) {
+            if (lastWavChannel > 0)
+                game.StopWAV(lastWavChannel);
+            lastWavChannel = -1;
+        }
+
+        game.FillRect(460, 250, 140, 30, COLOR_ORANGE);
+        game.DrawText(480, 258, "A - Stop All", COLOR_BLACK);
+        if (game.IsKeyPressed(KEY_A))
+            game.StopAll();
 
         game.DrawText(40, 290, "(uses assets/sound/explosion.wav)", COLOR_GRAY);
-        game.DrawPrintf(40, 305, COLOR_LIGHT_GRAY, "Last WAV start: %s",
-                        lastWavOk ? "OK" : "Failed");
+        game.DrawPrintf(40, 305, COLOR_LIGHT_GRAY, "Last WAV channel: %d",
+                        lastWavChannel);
+        if (lastWavChannel > 0) {
+            game.DrawPrintf(40, 320, COLOR_LIGHT_GRAY, "Playing: %s",
+                            game.IsPlaying(lastWavChannel) == 1 ? "Yes" : "No");
+        }
 
-        // === Section 3: Background Music ===
-        game.DrawText(40, 330, musicLabel, COLOR_WHITE);
+        // === Section 3: Master Volume ===
+        game.DrawText(40, 340, "Master Volume: +/- to adjust", COLOR_WHITE);
+        int masterVol = game.GetMasterVolume();
+        if (game.IsKeyPressed(KEY_ADD))
+            masterVol = game.SetMasterVolume(masterVol + 100);
+        if (game.IsKeyPressed(KEY_SUBTRACT))
+            masterVol = game.SetMasterVolume(masterVol - 100);
+        game.DrawPrintf(40, 355, COLOR_LIGHT_GRAY, "Volume: %d/1000", masterVol);
+
+        // === Section 4: Background Music ===
+        game.DrawText(40, 380, musicLabel, COLOR_WHITE);
 
         bool musicPlaying = game.IsMusicPlaying();
 
-        if (hasMusicSupport) {
-            game.FillRect(40, 350, 200, 30, musicPlaying ? COLOR_DARK_GREEN : COLOR_GREEN);
-            game.DrawText(55, 358, "M - Play Music", COLOR_BLACK);
-            if (game.IsKeyPressed(KEY_M) && !musicPlaying) {
-                lastMusicOk = game.PlayMusic(musicFile);
-                musicPlaying = game.IsMusicPlaying();
-            }
-
-            game.FillRect(260, 350, 200, 30, COLOR_RED);
-            game.DrawText(275, 358, "N - Stop Music", COLOR_BLACK);
-            if (game.IsKeyPressed(KEY_N) && musicPlaying)
-                game.StopMusic();
-
-            game.DrawPrintf(40, 420, COLOR_LIGHT_GRAY, "Music: %s",
-                            game.IsMusicPlaying() ? "Playing" : "Stopped");
-            game.DrawPrintf(40, 436, COLOR_LIGHT_GRAY, "Last music start: %s",
-                            lastMusicOk ? "OK" : "Failed");
-        } else {
-            game.DrawText(40, 358, "No music file available for this platform.", COLOR_LIGHT_GRAY);
+        game.FillRect(40, 400, 200, 30, musicPlaying ? COLOR_DARK_GREEN : COLOR_GREEN);
+        game.DrawText(55, 408, "M - Play Music", COLOR_BLACK);
+        if (game.IsKeyPressed(KEY_M) && !musicPlaying) {
+            lastMusicOk = game.PlayMusic(musicFile);
+            musicPlaying = game.IsMusicPlaying();
         }
 
-        game.DrawText(40, 390, musicHint, COLOR_GRAY);
+        game.FillRect(260, 400, 200, 30, COLOR_RED);
+        game.DrawText(275, 408, "N - Stop Music", COLOR_BLACK);
+        if (game.IsKeyPressed(KEY_N) && musicPlaying)
+            game.StopMusic();
 
-        game.DrawText(40, 460, "ESC to exit", COLOR_DARK_GRAY);
+        game.DrawPrintf(40, 445, COLOR_LIGHT_GRAY, "Music: %s",
+                        game.IsMusicPlaying() ? "Playing" : "Stopped");
+        game.DrawPrintf(40, 460, COLOR_LIGHT_GRAY, "Last music start: %s",
+                        lastMusicOk ? "OK" : "Failed");
+
+        game.DrawText(40, 430, musicHint, COLOR_GRAY);
+
+        game.DrawText(40, 470, "ESC to exit", COLOR_DARK_GRAY);
 
         game.Update();
         game.WaitFrame(60);
     }
     return 0;
 }
-

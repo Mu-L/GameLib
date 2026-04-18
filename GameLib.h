@@ -254,6 +254,8 @@ typedef HRESULT (WINAPI *PFN_CreateStreamOnHGlobal)(HGLOBAL, BOOL, void**);
 #define KEY_F10       VK_F10
 #define KEY_F11       VK_F11
 #define KEY_F12       VK_F12
+#define KEY_ADD       VK_ADD
+#define KEY_SUBTRACT  VK_SUBTRACT
 
 //---------------------------------------------------------------------
 // Mouse button constants

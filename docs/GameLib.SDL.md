@@ -362,7 +362,7 @@ GameLib.SDL.h
 - `IsKeyDown` / `IsKeyPressed` / `IsKeyReleased`
 - `GetMouseX` / `GetMouseY` / `IsMouseDown` / `IsMousePressed` / `IsMouseReleased`
 - `GetMouseWheelDelta` / `IsActive`
-- `PlayBeep` / `PlayWAV` / `StopWAV` / `PlayMusic` / `StopMusic` / `IsMusicPlaying`
+- `PlayBeep` / `PlayWAV` / `StopWAV` / `IsPlaying` / `SetVolume` / `StopAll` / `SetMasterVolume` / `GetMasterVolume` / `PlayMusic` / `StopMusic` / `IsMusicPlaying`
 - `Random` / `RectOverlap` / `CircleOverlap` / `PointInRect` / `Distance`
 - `DrawGrid` / `FillCell`
 - `CreateTilemap` / `SaveTilemap` / `LoadTilemap` / `FreeTilemap` / `SetTile` / `GetTile` / `GetTilemapCols` / `GetTilemapRows`
@@ -392,6 +392,14 @@ GameLib.SDL.h
 
 - Windows 版调用系统 `Beep`。
 - SDL 版改为 **库内合成短音频波形** 并播放。
+
+#### `PlayWAV` / `StopWAV` / `IsPlaying` / `SetVolume` / `StopAll` / `SetMasterVolume` / `GetMasterVolume`
+
+- API 签名与语义与 Win32 主线完全一致（多通道、自增通道 ID、音量 0~1000）
+- Win32 版使用 waveOut 软件混音器；SDL 版使用 `SDL_OpenAudioDevice` + 自写音频回调混音器
+- SDL 版 WAV 解析和重采样逻辑与 Win32 版一致（线性插值 + 边界钳制，统一转换为 44100Hz/stereo/16bit）
+- SDL 版使用 `SDL_LockAudioDevice`/`SDL_UnlockAudioDevice` 替代 Win32 版的 `CRITICAL_SECTION`
+- 音效混音器与背景音乐的 SDL_mixer 使用独立的 audio device，两者可同时播放
 
 #### `WaitFrame`
 
@@ -751,36 +759,46 @@ SDL 版仍保留 `LoadSpriteBMP()`，目的有二：
 
 ### 10.1 总体原则
 
-SDL 版音频继续保持“简单高层 API”风格：
+SDL 版音频分为两条独立路径：
 
-- 一个背景音乐流
-- 一个由库管理的音效通道
-- 一个 `PlayBeep()` 兼容接口
+- **音效**：自写软件混音器（`SDL_OpenAudioDevice` + 音频回调），与 Win32 主线的 waveOut 混音器架构平行
+- **背景音乐**：继续走 `SDL_mixer`（`Mix_Music*`），因为 MIDI/MP3 等格式需要解码器
+- `PlayBeep()` 兼容接口：优先走自写混音器，降级时走 `SDL_QueueAudio`
+
+音效和音乐使用独立的 SDL audio device，互不干扰。
 
 不向用户暴露：
 
-- mixer 通道管理
-- 音频回调
+- 音频回调细节
+- 混音器内部通道管理
 - 解码线程
 - 设备枚举
 
-### 10.2 PlayWAV / StopWAV
+### 10.2 音效 API（自写软件混音器）
 
-首版语义建议与 Windows 版对齐：
+与 Win32 主线对齐的多通道音效 API：
 
-- `PlayWAV(filename, loop)` 由库自己保留“当前音效”状态
-- 再次调用 `PlayWAV()` 时，新音效会替换旧音效
-- `StopWAV()` 停止当前由库启动的音效
+- `PlayWAV(filename, repeat, volume)` → 返回通道 ID（正整数），失败返回 -1/-2/-4
+- `StopWAV(channel)` → 停止指定通道，成功返回 1，无效通道返回 0
+- `IsPlaying(channel)` → 查询通道是否播放中，返回 1/0
+- `SetVolume(channel, volume)` → 设置通道音量（0~1000），返回新音量值或 -1
+- `StopAll()` → 停止所有音效并释放缓存
+- `SetMasterVolume(volume)` → 设置主音量（0~1000），返回实际值
+- `GetMasterVolume()` → 返回当前主音量（0~1000）
 
-实现建议：
+实现架构：
 
-- 用 `Mix_Chunk*` 表示音效
-- 使用一个保留 channel 播放普通音效
-- `loop=true` 时使用无限循环或很大循环次数
+- 使用 `SDL_OpenAudioDevice` 打开独立的音频输出设备，回调模式
+- 自写 WAV 解析、重采样（线性插值，与 GameLib.h 一致）、单声道→立体声转换
+- 所有 WAV 数据统一转换为 44100Hz/stereo/16bit 后缓存复用
+- 多通道混音：`int32_t` 累加防止溢出，最终钳制到 `int16_t` 范围
+- 通道 ID 用自增 `int64_t` 分配，最大 32 个并发通道
+- 音频设备惰性初始化：首次 `PlayWAV` 时才创建
+- 公开 API 通过 `SDL_LockAudioDevice`/`SDL_UnlockAudioDevice` 保护通道状态
 
 ### 10.3 PlayMusic / StopMusic / IsMusicPlaying
 
-首版背景音乐由 `SDL_mixer` 的 `Mix_Music*` 实现。
+背景音乐仍由 `SDL_mixer` 的 `Mix_Music*` 实现（不做任何修改）。
 
 语义：
 
@@ -795,27 +813,22 @@ SDL 版音频继续保持“简单高层 API”风格：
 - `PlayMusic()` 在加载前根据文件扩展名和 `_mixerInitFlags` 判断对应解码器是否可用：标志位为 0 时直接拒绝并返回 `false`
 - WAV 始终由 SDL_mixer 内置支持，不需要解码器标志
 - MIDI 支持取决于平台：Linux 需要 timidity 或 native MIDI 服务，Windows 可用 native MIDI
+- 音效混音器和 SDL_mixer 使用独立的 audio device，两者可同时播放
 
 ### 10.4 PlayBeep
 
 SDL 版 `PlayBeep(int frequency, int duration)` 当前实现为 **阻塞式合成提示音**：
 
-- 运行时生成一小段 PCM 波形
-- 优先在 `SDL_mixer` 可用时通过保留 channel 播放
-- 若 mixer 不可用，则临时打开 plain SDL audio device，走 `SDL_QueueAudio`
-- 在声音播完或达到保护超时之前不返回，尽量保持与 Win32 `Beep()` 接近的教学语义
-
-目标：
-
-- API 保留
-- 教学效果保留
+- 若音效混音器已初始化，直接通过自写混音器播放（临时通道）
+- 若混音器未初始化，临时打开 SDL audio device 走 `SDL_QueueAudio`
+- 在声音播完或达到保护超时之前不返回，保持与 Win32 `Beep()` 接近的教学语义
 - 不要求与 Windows 系统蜂鸣器音色一致
 
-### 10.5 音频资源释放
+### 10.5 音频设备共存与释放
 
-- 析构时必须停止音乐和音效
-- 释放 `Mix_Chunk*` / `Mix_Music*`
-- 关闭 mixer 和 SDL 音频子系统
+- 音效设备（`SDL_AudioDeviceID _audioDevice`）和音乐设备（`Mix_OpenAudio`）独立共存
+- 析构顺序：先 `StopMusic`，再 `_ShutdownAudioBackend` 关闭音效设备，然后清理通道和 WAV 缓存，最后关闭 SDL_mixer 和 SDL audio subsystem
+- WAV 缓存按文件路径管理，`_WavData` 使用引用计数，同一文件多次播放不重复读取
 
 ---
 
@@ -902,9 +915,39 @@ std::vector<GameTilemap> _tilemaps;
 // 字体缓存
 std::vector<GameFontCacheEntry> _fontCache;
 
-// 音频
-Mix_Chunk *_currentWav;
-int _wavChannel;
+// 音频混音器状态（自写软件混音器）
+struct _WavData {
+    uint8_t *buffer;
+    uint32_t size;
+    uint32_t sample_rate;
+    uint16_t channels;
+    uint16_t bits_per_sample;
+    int ref_count;
+};
+struct _Channel {
+    int id;
+    _WavData *wav;
+    int volume;
+    int repeat;
+    uint32_t position;
+    bool is_playing;
+};
+std::unordered_map<std::string, _WavData*> _wav_cache;
+std::unordered_map<int, _Channel*> _audio_channels;
+int64_t _next_channel_id;
+bool _audio_initialized;
+int _master_volume;
+SDL_AudioDeviceID _audioDevice;
+SDL_AudioSpec _audioSpec;
+bool _audioSelfInit;
+static const int _MAX_CHANNELS = 32;
+static const int _AUDIO_BUFFER_FRAMES = 2048;
+static const int _AUDIO_OUTPUT_CHANNELS = 2;
+static const int _AUDIO_BUFFER_TOTAL;
+static const int _AUDIO_BUFFER_BYTES;
+int32_t _mix_buffer[_AUDIO_BUFFER_TOTAL];
+
+// 音乐状态（SDL_mixer）
 Mix_Music *_currentMusic;
 bool _musicPlaying;
 int _mixerInitFlags;
@@ -1068,7 +1111,7 @@ static bool _srandDone;
 
 1. **产品线分离**：保留现有 `GameLib.h`，新建独立 `GameLib.SDL.h`。
 2. **公开类名不变**：SDL 版仍使用 `GameLib` 类名，不与 Win32 版混合包含。
-3. **音频库选择 `SDL_mixer`**：不以 `SDL_sound` 作为首版默认方案。
+3. **音效走自写软件混音器**：SDL 版音效不再依赖 `SDL_mixer`，而是自写 WAV 解析、重采样、多通道混音 + `SDL_OpenAudioDevice` 回调；`SDL_mixer` 仅用于背景音乐。
 4. **字体参数优先按路径解释**：家族名解析仅 best effort。
 5. **继续坚持软件帧缓冲**：不把用户绘图直接切到 SDL renderer API。
 6. **窗口默认不可缩放**：先做与现有 `GameLib.h` 接近的行为。
@@ -1082,8 +1125,12 @@ static bool _srandDone;
 - 选择独立 `GameLib.SDL.h`，是为了避免把现有 `GameLib.h` 变成一个充满平台分支和依赖分支的巨型头文件。
 - 选择继续保留软件帧缓冲，是为了最大化复用现有图元、精灵、Tilemap、像素混合逻辑，也让 SDL 版与 Win32 版更容易保持语义一致。
 - 无 Alpha 且无 ColorKey 的 sprite/tilemap 快路径继续保持“直接覆盖目标像素”的规则，只有显式传入 `SPRITE_ALPHA` / `SPRITE_COLORKEY` 时才启用透明语义；这样 SDL 版与 Win32 版的默认 sprite 行为一致。
-- 选择 `SDL_mixer` 而不是纯 `SDL_Audio`，是为了让 `PlayWAV` / `PlayMusic` 这类高层 API 更快落地。
-- `PlayBeep` 优先复用 `SDL_mixer`，失败时再回退到 plain SDL queued audio，但整体仍保持阻塞式调用；这样更接近 Win32 版“提示音期间短暂停一下”的教学预期。
+- 选择 `SDL_mixer` 用于背景音乐（`PlayMusic`/`StopMusic`），是因为 MIDI/MP3 等格式需要解码器支持；但音效（`PlayWAV` 等）改用自写软件混音器 + `SDL_OpenAudioDevice` 回调，与 Win32 主线 waveOut 混音器架构平行，避免 SDL_mixer 单通道音效的局限。
+- 音效混音器和 SDL_mixer 使用独立的 audio device，两者可同时播放，互不干扰；这是 SDL 2 支持多 audio device 并存的特性。
+- 音效设备惰性初始化（首次 `PlayWAV` 时才打开），不使用音频的程序不会创建 audio device。
+- WAV 数据统一转换为 44100Hz/stereo/16bit 后缓存复用，与 Win32 主线保持一致的重采样和格式转换逻辑。
+- `SDL_LockAudioDevice`/`SDL_UnlockAudioDevice` 替代 Win32 版的 `CRITICAL_SECTION`，在公开 API 中保护通道状态修改。
+- `PlayBeep` 优先复用自写混音器（若已初始化），否则临时打开 SDL audio device 走 `SDL_QueueAudio`；整体仍保持阻塞式调用，接近 Win32 版教学语义。
 - 字体部分不把“系统字体家族名跨平台精确解析”列为首版硬要求，是为了控制复杂度，避免一开始就把 Win32 / macOS / Linux 的字体发现机制都卷进来。
 - SDL 头文件包含和扩展库检测放在类声明之前、不受 `GAMELIB_SDL_IMPLEMENTATION` 保护；这样类声明直接使用真实 SDL 类型，不再依赖跨平台不一致的前向声明。条件前向声明仅在扩展头未找到时（`GAMELIB_SDL_HAS_* = 0`）才会生效，且使用 SDL 官方 typedef tag 约定（如 `_TTF_Font`、`_Mix_Music`），避免与后续外部包含冲突。
 - Tilemap 不再缓存 `tilesetTileCount`，而是由 `DrawTilemap()` 在 memcpy 风险点前按 live sprite 尺寸即时计算 `tileCount`；这样既减少内部状态，又保持 sprite 槽位复用后的内存安全。

@@ -119,9 +119,9 @@ int main()
         // === Section 3: Master Volume ===
         game.DrawText(40, 340, "Master Volume: +/- to adjust", COLOR_WHITE);
         int masterVol = game.GetMasterVolume();
-        if (game.IsKeyPressed(0x6E) || game.IsKeyPressed(VK_ADD))  // numpad + or ADD
+        if (game.IsKeyPressed(KEY_ADD))
             masterVol = game.SetMasterVolume(masterVol + 100);
-        if (game.IsKeyPressed(VK_SUBTRACT))  // numpad -
+        if (game.IsKeyPressed(KEY_SUBTRACT))  // numpad -
             masterVol = game.SetMasterVolume(masterVol - 100);
         game.DrawPrintf(40, 355, COLOR_LIGHT_GRAY, "Volume: %d/1000", masterVol);
 
