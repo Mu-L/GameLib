@@ -4,7 +4,7 @@
 
 `GameLib.SDL.h` 是 `GameLib.h` 的 **独立 SDL 版产品线**，目标是在 **Windows / macOS / Linux** 上提供尽量一致的教学型 2D 游戏开发体验。
 
-**当前版本**: `1.9.2`
+**当前版本**: `1.9.3`
 
 它不是对现有 `GameLib.h` 的直接替换，也不是在原头文件中塞入大量 `#ifdef SDL` 的混合版本，而是一份 **单独维护的跨平台单头文件**。其公开使用方式尽量保持与 `GameLib.h` 一致：
 
@@ -600,6 +600,7 @@ SDL 版输入系统要求：
 ### 8.1 内置 8x8 字体
 
 - `DrawText` / `DrawNumber` / `DrawTextScale(w,h)` / `DrawPrintf` / `DrawPrintfScale(w,h)` 的内置位图字体逻辑应与 `GameLib.h` 保持一致。
+- `DrawTextScale` 使用预计算查找表缩放（替代逐像素除法），`w`、`h` 最大值 1024；alpha==255 时直写 framebuffer，alpha<255 时走像素混合；空行整体跳过。
 - 继续使用 ASCII 32~126 的 8x8 点阵数据。
 - 这是 SDL 版始终可用的零外部字体方案。
 - `Button` / `Checkbox` / `RadioBox` / `ToggleButton` 的标签也固定走这套内置 8x8 字体，因此即使 `SDL_ttf` 被关闭，这四个基础 UI 控件仍然可用。

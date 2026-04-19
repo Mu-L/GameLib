@@ -4,10 +4,10 @@
 
 `GameLib.h` 是一个面向初学者的 **单头文件游戏库**，基于 Win32 GDI，无需 SDL 或其他第三方库。目标用户是小朋友，用于在 Dev C++ (GCC 4.9.2) 环境下开发简单游戏（空战、俄罗斯方块、走迷宫等）。
 
-**当前版本**: `1.9.2`
+**当前版本**: `1.9.3`
 **最后修改**: 2026/04/20
 
-当前 `1.9.2` 的稳定范围包括：窗口与输入、图元与文字、精灵与 Tilemap、声音、场景管理、纯文本存档，以及固定 framebuffer + 可选可缩放窗口。音效子系统从 PlaySoundW 单声道改为多通道软件混音器（最多 32 通道并发，支持音量/主音量控制）；新增 `DrawPrintfScale`、`KEY_ADD`/`KEY_SUBTRACT` 键常量；音频后端改为惰性初始化。Tilemap 不再缓存 `tilesetTileCount`；地图里超出当前 tileset 范围的非负 `tileId` 会在绘制时自动跳过。窗口缩放时继续返回 framebuffer 逻辑坐标的鼠标位置。新增 `GetFramebuffer()` 直接暴露 framebuffer 指针。
+当前 `1.9.3` 的稳定范围包括：窗口与输入、图元与文字、精灵与 Tilemap、声音、场景管理、纯文本存档，以及固定 framebuffer + 可选可缩放窗口。音效子系统从 PlaySoundW 单声道改为多通道软件混音器（最多 32 通道并发，支持音量/主音量控制）；新增 `DrawPrintfScale`、`KEY_ADD`/`KEY_SUBTRACT` 键常量；音频后端改为惰性初始化。Tilemap 不再缓存 `tilesetTileCount`；地图里超出当前 tileset 范围的非负 `tileId` 会在绘制时自动跳过。窗口缩放时继续返回 framebuffer 逻辑坐标的鼠标位置。新增 `GetFramebuffer()` 直接暴露 framebuffer 指针。`DrawTextScale` 内部改为预计算查找表缩放（替代逐像素除法），alpha==255 时直写 framebuffer，最大缩放尺寸 1024。
 
 ---
 
@@ -515,6 +515,8 @@ static bool _srandDone; // srand 是否已初始化
 #### `void DrawTextScale(int x, int y, const char *text, uint32_t color, int w, int h)`
 - 缩放版文字绘制，每个字符按指定宽高渲染，内置 8×8 位图字体通过定点采样映射到 w × h 区域
 - w 和 h 可以不同，实现非等比缩放；旧版 `scale` 等价于 `w = 8 × scale, h = 8 × scale`
+- w、h 最大值 1024，超出直接返回
+- 内部使用预计算查找表（`_textSrcRowMap`/`_textSrcColMap`）替代逐像素除法；alpha==255 时直写 framebuffer，alpha<255 时走 `_gamelib_blend_pixel`；空行（bits==0）整体跳过
 - 支持 `\n` 换行
 
 #### `void DrawPrintf(int x, int y, uint32_t color, const char *fmt, ...)`
