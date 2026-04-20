@@ -290,12 +290,16 @@ std::wstring _musicAlias; // 当前实例使用的 MCI alias
 
 // 音频混音器状态
 struct _WavData {
-    WAVEFORMATEX format;
-    int16_t *samples;
-    uint32_t samples_per_channel;
+    uint8_t *buffer;
+    uint32_t size;
     uint32_t sample_rate;
-    int channels;
-    ~_WavData() { if (samples) free(samples); }
+    uint16_t channels;
+    uint16_t bits_per_sample;
+    int ref_count;
+    bool temporary;
+    _WavData() : buffer(NULL), size(0), sample_rate(0), channels(0),
+                 bits_per_sample(0), ref_count(0), temporary(false) {}
+    ~_WavData() { if (buffer) delete[] buffer; }
 };
 struct _Channel {
     _WavData *wav;
@@ -1200,5 +1204,6 @@ int main() {
 | waveOut 使用 CALLBACK_FUNCTION 双缓冲模式 | 回调驱动混音，无需线程池或定时器；双缓冲交替提交保证连续播放不卡顿 |
 | WAV 重采样使用线性插值 + 边界钳制 | `step = src_rate / target_rate`，浮点源索引取整后 clamp 到 `samples_per_channel - 1`，防止越界读 |
 | WAV 文件按路径缓存 | 同一文件只读一次，重复播放从缓存取 `_WavData`，避免磁盘重复 IO |
+| PlayPCM 临时数据 `temporary` 标记 | `temporary=true` 的 `_WavData` 在 ref_count 递减后立即释放；复用 `_ConvertToTargetFormat`，栈上借用外部指针零拷贝 |
 | 通道 ID 用自增 `int64_t` 分配 | 简单无冲突，关闭通道后 ID 不回收；`unordered_map<int, _Channel*>` 管理活跃通道 |
 | 混音缓冲使用 `int32_t` 累加 | 防止多通道叠加溢出 16-bit；最终按 `master_volume * channel_volume / 1000000` 钳制后截断为 `int16_t` |

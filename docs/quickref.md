@@ -112,7 +112,8 @@
 
 | 函数                        | 说明                     |
 | --------------------------- | ------------------------ |
-| `PlayWAV(filename, repeat, volume)` | 播放音效，返回通道 ID（正整数），失败 -1/-2 |
+| `PlayWAV(filename, repeat, volume)` | 播放音效，返回通道 ID（正整数），失败 -1/-2/-4 |
+| `PlayPCM(pcm, nchannels, nsamples, sample_rate, repeat, volume)` | 播放原始 PCM 数据，返回通道 ID，失败 -1/-2/-4 |
 | `StopWAV(channel)`          | 停止指定通道音效，成功返回 1 |
 | `IsPlaying(channel)`        | 查询通道是否播放中，返回 1/0 |
 | `SetVolume(channel, volume)` | 设置通道音量（0~1000） |

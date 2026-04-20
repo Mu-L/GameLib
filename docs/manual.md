@@ -1731,11 +1731,41 @@ int PlayWAV(const char *filename, int repeat = 1, int volume = 1000);
 
 **返回值**
 
-成功返回通道 ID（正整数），文件错误返回 -1，音频设备初始化失败返回 -2。
+成功返回通道 ID（正整数），文件错误返回 -1，音频设备初始化失败返回 -2，通道数量达到上限返回 -4。
 
 **备注**
 
 使用 waveOut 软件混音器播放。同一 WAV 文件可重叠播放（每次分配独立通道）。WAV 文件按 `filename` 缓存，重复播放同一文件不重新读取。音频设备惰性初始化，首次调用时才创建 waveOut 设备。与 `PlayMusic` 独立通道，可同时播放。
+
+---
+
+### PlayPCM
+
+播放原始 PCM 数据（16-bit signed，交错存储）。
+
+**函数声明**
+```cpp
+int PlayPCM(const int16_t *pcm, int nchannels, int nsamples, int sample_rate, int repeat = 1, int volume = 1000);
+```
+
+**参数**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `pcm` | `const int16_t *` | 16-bit signed PCM 样本数组（多声道时交错存储） |
+| `nchannels` | `int` | 声道数（1=单声道，2=立体声） |
+| `nsamples` | `int` | `pcm` 数组中 int16_t 的总数量 |
+| `sample_rate` | `int` | 采样率（如 44100、22050） |
+| `repeat` | `int` | 重复次数，0=无限循环，默认 1 |
+| `volume` | `int` | 通道音量 0~1000，默认 1000 |
+
+**返回值**
+
+成功返回通道 ID（正整数），数据转换/重采样失败返回 -1，音频设备未初始化返回 -2，通道数量达到上限返回 -4。
+
+**备注**
+
+PCM 数据在调用时读取并转换为 44100Hz 立体声格式，转换后的数据标记为临时数据，播放结束后自动释放，不进入 WAV 缓存。`pcm` 指针仅在调用期间读取，播放期间不需要保持有效。返回的通道 ID 可用 `StopWAV`、`IsPlaying`、`SetVolume` 等接口控制，与 `PlayWAV` 返回的通道用法一致。
 
 ---
 

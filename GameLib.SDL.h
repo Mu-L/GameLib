@@ -385,6 +385,7 @@ public:
 
     void PlayBeep(int frequency, int duration);
     int PlayWAV(const char *filename, int repeat = 1, int volume = 1000);
+    int PlayPCM(const int16_t *pcm, int nchannels, int nsamples, int sample_rate, int repeat = 1, int volume = 1000);
     int StopWAV(int channel);
     int IsPlaying(int channel);
     int SetVolume(int channel, int volume);
@@ -556,8 +557,9 @@ private:
         uint16_t channels;
         uint16_t bits_per_sample;
         int ref_count;
+        bool temporary;
         _WavData() : buffer(NULL), size(0), sample_rate(0), channels(0),
-                     bits_per_sample(0), ref_count(0) {}
+                     bits_per_sample(0), ref_count(0), temporary(false) {}
         ~_WavData() { if (buffer) delete[] buffer; }
     };
     struct _Channel {
@@ -3777,10 +3779,13 @@ void GameLib::PlayBeep(int frequency, int duration)
         beepWav->buffer = new uint8_t[beepWav->size];
         memcpy(beepWav->buffer, toneData.data(), beepWav->size);
         beepWav->ref_count = 1;
+        beepWav->temporary = true;
 
         // Allocate a temporary channel and play it
+        SDL_LockAudioDevice(_audioDevice);
         int ch_id = _AllocateChannel();
         if (ch_id == 0) {
+            SDL_UnlockAudioDevice(_audioDevice);
             delete beepWav;
             return;
         }
@@ -3790,8 +3795,6 @@ void GameLib::PlayBeep(int frequency, int duration)
         ch->repeat = 1;
         ch->position = 0;
         ch->is_playing = true;
-
-        SDL_LockAudioDevice(_audioDevice);
         _audio_channels[ch_id] = ch;
         SDL_UnlockAudioDevice(_audioDevice);
 
@@ -4532,7 +4535,10 @@ void GameLib::_MixAudio(int16_t *output_buffer, int sample_count)
                 ch->position = 0;
                 ch->repeat--;
             } else {
-                if (ch->wav) ch->wav->ref_count--;
+                if (ch->wav) {
+                    ch->wav->ref_count--;
+                    if (ch->wav->temporary) delete ch->wav;
+                }
                 delete ch;
                 it = _audio_channels.erase(it);
                 continue;
@@ -4746,6 +4752,7 @@ void GameLib::_ReleaseChannel(int channel_id)
     if (it != _audio_channels.end()) {
         if (it->second->wav) {
             it->second->wav->ref_count--;
+            if (it->second->wav->temporary) delete it->second->wav;
         }
         delete it->second;
         _audio_channels.erase(it);
@@ -4768,8 +4775,12 @@ int GameLib::PlayWAV(const char *filename, int repeat, int volume)
     _WavData *wav = _LoadOrCacheWAV(filename);
     if (!wav) return -1;
 
+    SDL_LockAudioDevice(_audioDevice);
     int ch_id = _AllocateChannel();
-    if (ch_id == 0) return -4;
+    if (ch_id == 0) {
+        SDL_UnlockAudioDevice(_audioDevice);
+        return -4;
+    }
 
     _Channel *ch = new _Channel();
     ch->id = ch_id;
@@ -4778,8 +4789,48 @@ int GameLib::PlayWAV(const char *filename, int repeat, int volume)
     ch->repeat = repeat;
     ch->volume = (volume < 0) ? 0 : (volume > 1000 ? 1000 : volume);
     ch->is_playing = true;
+    _audio_channels[ch_id] = ch;
+    SDL_UnlockAudioDevice(_audioDevice);
+
+    return ch_id;
+}
+
+int GameLib::PlayPCM(const int16_t *pcm, int nchannels, int nsamples, int sample_rate, int repeat, int volume)
+{
+    if (!pcm || nchannels < 1 || nchannels > 2 || nsamples <= 0 || sample_rate <= 0) return -1;
+    if (!_audio_initialized) {
+        _audio_initialized = _InitAudioBackend();
+        if (!_audio_initialized) return -2;
+    }
+
+    _WavData src;
+    src.sample_rate = (uint32_t)sample_rate;
+    src.channels = (uint16_t)nchannels;
+    src.bits_per_sample = 16;
+    src.size = (uint32_t)(nsamples * sizeof(int16_t));
+    src.buffer = (uint8_t*)pcm;
+
+    _WavData *wav = _ConvertToTargetFormat(&src);
+    src.buffer = NULL;
+
+    if (!wav) return -1;
+    wav->temporary = true;
 
     SDL_LockAudioDevice(_audioDevice);
+    int ch_id = _AllocateChannel();
+    if (ch_id == 0) {
+        SDL_UnlockAudioDevice(_audioDevice);
+        delete wav;
+        return -4;
+    }
+
+    _Channel *ch = new _Channel();
+    ch->id = ch_id;
+    ch->wav = wav;
+    ch->position = 0;
+    ch->repeat = repeat;
+    ch->volume = (volume < 0) ? 0 : (volume > 1000 ? 1000 : volume);
+    ch->is_playing = true;
     _audio_channels[ch_id] = ch;
     SDL_UnlockAudioDevice(_audioDevice);
 
