@@ -1693,22 +1693,29 @@ bool IsActive() const;
 
 ### PlayBeep
 
-阻塞式蜂鸣。
+生成并播放蜂鸣音（异步，多通道）。
 
 **函数声明**
 ```cpp
-void PlayBeep(int frequency, int duration);
+int PlayBeep(int frequency, int duration, int repeat = 1, int volume = 1000);
 ```
 
 **参数**
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `frequency` | `int` | 频率（Hz） |
+| `frequency` | `int` | 频率（Hz），如 262=do, 294=re, 330=mi, 349=fa, 392=so |
 | `duration` | `int` | 持续时间（毫秒） |
+| `repeat` | `int` | 重复次数，0=无限循环，默认 1 |
+| `volume` | `int` | 通道音量 0~1000，默认 1000 |
 
 **返回值**
-无
+
+成功返回通道 ID（正整数），参数无效返回 -1，音频设备未初始化返回 -2，通道数量达到上限返回 -4。
+
+**备注**
+
+内部生成正弦波 PCM 数据并通过 `PlayPCM` 播放，数据末尾带 10ms 淡出以消除爆音。返回的通道 ID 可用 `StopWAV`、`IsPlaying`、`SetVolume` 控制。
 
 ---
 

@@ -417,7 +417,7 @@ public:
     bool IsActive() const;
 
     // -------- Sound --------
-    void PlayBeep(int frequency, int duration);
+    int PlayBeep(int frequency, int duration, int repeat = 1, int volume = 1000);
     int PlayWAV(const char *filename, int repeat = 1, int volume = 1000);
     int PlayPCM(const int16_t *pcm, int nchannels, int nsamples, int sample_rate, int repeat = 1, int volume = 1000);
     int StopWAV(int channel);
@@ -4320,11 +4320,6 @@ bool GameLib::IsActive() const
 // Sound
 //=====================================================================
 
-void GameLib::PlayBeep(int frequency, int duration)
-{
-    Beep(frequency, duration);
-}
-
 bool GameLib::PlayMusic(const char *filename, bool loop)
 {
     if (!filename || !_gl_mciSendStringW) return false;
@@ -5453,6 +5448,40 @@ int GameLib::SetMasterVolume(int volume)
 int GameLib::GetMasterVolume() const
 {
     return _master_volume;
+}
+
+
+int GameLib::PlayBeep(int frequency, int duration, int repeat, int volume)
+{
+    if (frequency <= 0 || duration <= 0) return -1;
+    if (!_audio_initialized) {
+        _audio_initialized = _InitAudioBackend();
+        if (!_audio_initialized) return -2;
+    }
+
+    const int sample_rate = 44100;
+    const int nchannels = 1;
+    int total_samples = (int)((double)sample_rate * duration / 1000.0);
+    if (total_samples <= 0) return -1;
+
+    int16_t *pcm = new int16_t[total_samples];
+    double phase = 0.0;
+    double step = 2.0 * 3.14159265358979323846 * frequency / sample_rate;
+    int fade_samples = sample_rate / 100;
+    if (fade_samples > total_samples) fade_samples = total_samples;
+    for (int i = 0; i < total_samples; i++) {
+        pcm[i] = (int16_t)(32767.0 * 0.5 * sin(phase));
+        phase += step;
+    }
+    for (int i = 0; i < fade_samples; i++) {
+        double fade = 1.0 - (double)i / fade_samples;
+        pcm[total_samples - fade_samples + i] =
+            (int16_t)(pcm[total_samples - fade_samples + i] * fade);
+    }
+
+    int ch_id = PlayPCM(pcm, nchannels, total_samples, sample_rate, repeat, volume);
+    delete[] pcm;
+    return ch_id;
 }
 
 

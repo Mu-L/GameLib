@@ -383,7 +383,7 @@ public:
     int GetMouseWheelDelta() const;
     bool IsActive() const;
 
-    void PlayBeep(int frequency, int duration);
+    int PlayBeep(int frequency, int duration, int repeat = 1, int volume = 1000);
     int PlayWAV(const char *filename, int repeat = 1, int volume = 1000);
     int PlayPCM(const int16_t *pcm, int nchannels, int nsamples, int sample_rate, int repeat = 1, int volume = 1000);
     int StopWAV(int channel);
@@ -863,52 +863,6 @@ static bool _gamelib_rw_write_text(SDL_RWops *rw, const char *text, size_t len)
     if (!text) return len == 0;
     if (len == 0) return true;
     return SDL_RWwrite(rw, text, 1, len) == len;
-}
-
-static void _gamelib_generate_beep_pcm(std::vector<int16_t> &samples,
-                                       int sampleRate, int channels,
-                                       int frequency, int durationMs)
-{
-    samples.clear();
-    if (sampleRate <= 0 || channels <= 0 || durationMs <= 0) return;
-
-    if (frequency < 37) frequency = 37;
-    int nyquistLimit = sampleRate / 2 - 1;
-    if (nyquistLimit < 37) nyquistLimit = 37;
-    if (frequency > nyquistLimit) frequency = nyquistLimit;
-
-    int sampleCount = (durationMs * sampleRate) / 1000;
-    if (sampleCount <= 0) sampleCount = 1;
-
-    samples.resize((size_t)sampleCount * (size_t)channels);
-
-    const double pi = 3.14159265358979323846;
-    const double phaseStep = 2.0 * pi * (double)frequency / (double)sampleRate;
-    const double amplitude = 12000.0;
-
-    int edgeSamples = sampleRate / 200; // About 5ms fade-in/out to reduce clicks.
-    if (edgeSamples < 1) edgeSamples = 1;
-    if (edgeSamples * 2 > sampleCount) edgeSamples = sampleCount / 2;
-
-    double phase = 0.0;
-    for (int i = 0; i < sampleCount; i++) {
-        double envelope = 1.0;
-        if (edgeSamples > 0) {
-            if (i < edgeSamples) {
-                envelope = (double)(i + 1) / (double)edgeSamples;
-            } else if (i >= sampleCount - edgeSamples) {
-                envelope = (double)(sampleCount - i) / (double)edgeSamples;
-            }
-        }
-
-        int16_t value = (int16_t)(sin(phase) * amplitude * envelope);
-        phase += phaseStep;
-
-        size_t base = (size_t)i * (size_t)channels;
-        for (int ch = 0; ch < channels; ch++) {
-            samples[base + (size_t)ch] = value;
-        }
-    }
 }
 
 static int _gamelib_sdl_map_scancode(SDL_Scancode scancode)
@@ -3759,118 +3713,6 @@ bool GameLib::IsActive() const
     return _active;
 }
 
-void GameLib::PlayBeep(int frequency, int duration)
-{
-    if (duration <= 0) return;
-    if (frequency <= 0) frequency = 440;
-
-    // If our mixer is initialized, play beep through the software mixer
-    if (_audio_initialized && _audioDevice != 0) {
-        std::vector<int16_t> toneData;
-        _gamelib_generate_beep_pcm(toneData, 44100, 2, frequency, duration);
-        if (toneData.empty()) return;
-
-        // Create temporary _WavData for the beep
-        _WavData *beepWav = new _WavData();
-        beepWav->sample_rate = 44100;
-        beepWav->channels = 2;
-        beepWav->bits_per_sample = 16;
-        beepWav->size = (uint32_t)(toneData.size() * sizeof(int16_t));
-        beepWav->buffer = new uint8_t[beepWav->size];
-        memcpy(beepWav->buffer, toneData.data(), beepWav->size);
-        beepWav->ref_count = 1;
-        beepWav->temporary = true;
-
-        // Allocate a temporary channel and play it
-        SDL_LockAudioDevice(_audioDevice);
-        int ch_id = _AllocateChannel();
-        if (ch_id == 0) {
-            SDL_UnlockAudioDevice(_audioDevice);
-            delete beepWav;
-            return;
-        }
-        _Channel *ch = new _Channel();
-        ch->wav = beepWav;
-        ch->volume = 1000;
-        ch->repeat = 1;
-        ch->position = 0;
-        ch->is_playing = true;
-        _audio_channels[ch_id] = ch;
-        SDL_UnlockAudioDevice(_audioDevice);
-
-        // Blocking wait for beep to finish (with safety timeout)
-        Uint32 timeout = SDL_GetTicks() + (Uint32)duration + 500U;
-        while (SDL_GetTicks() < timeout) {
-            SDL_LockAudioDevice(_audioDevice);
-            std::unordered_map<int, _Channel*>::iterator it = _audio_channels.find(ch_id);
-            bool stillPlaying = (it != _audio_channels.end() && it->second->is_playing);
-            SDL_UnlockAudioDevice(_audioDevice);
-            if (!stillPlaying) break;
-            SDL_Delay(1);
-        }
-
-        // Clean up the temporary channel and wav data
-        SDL_LockAudioDevice(_audioDevice);
-        _ReleaseChannel(ch_id);
-        SDL_UnlockAudioDevice(_audioDevice);
-        return;
-    }
-
-    // Fallback: open a temporary SDL audio device for the beep
-    bool audioSubInit = false;
-    if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) return;
-        audioSubInit = true;
-    }
-
-    SDL_AudioSpec want;
-    SDL_AudioSpec have;
-    SDL_zero(want);
-    SDL_zero(have);
-    want.freq = 44100;
-    want.format = AUDIO_S16SYS;
-    want.channels = 2;
-    want.samples = 1024;
-    want.callback = NULL;
-
-    SDL_AudioDeviceID device = SDL_OpenAudioDevice(
-        NULL, 0, &want, &have,
-        SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
-    if (device == 0) {
-        if (audioSubInit) SDL_QuitSubSystem(SDL_INIT_AUDIO);
-        return;
-    }
-
-    if (have.freq <= 0 || have.channels <= 0 || have.format != AUDIO_S16SYS) {
-        SDL_CloseAudioDevice(device);
-        if (audioSubInit) SDL_QuitSubSystem(SDL_INIT_AUDIO);
-        return;
-    }
-
-    std::vector<int16_t> toneData;
-    _gamelib_generate_beep_pcm(toneData, have.freq, have.channels, frequency, duration);
-    if (toneData.empty()) {
-        SDL_CloseAudioDevice(device);
-        if (audioSubInit) SDL_QuitSubSystem(SDL_INIT_AUDIO);
-        return;
-    }
-
-    SDL_ClearQueuedAudio(device);
-    if (SDL_QueueAudio(device, toneData.data(),
-                       (Uint32)(toneData.size() * sizeof(int16_t))) == 0) {
-        Uint32 timeout = SDL_GetTicks() + (Uint32)duration + 500U;
-        SDL_PauseAudioDevice(device, 0);
-        while (SDL_GetQueuedAudioSize(device) > 0 &&
-               !SDL_TICKS_PASSED(SDL_GetTicks(), timeout)) {
-            SDL_Delay(1);
-        }
-        SDL_Delay(8);
-    }
-
-    SDL_CloseAudioDevice(device);
-    if (audioSubInit) SDL_QuitSubSystem(SDL_INIT_AUDIO);
-}
-
 #if GAMELIB_SDL_HAS_MIXER
 static char _gamelib_sdl_music_ascii_tolower(char ch)
 {
@@ -4903,6 +4745,40 @@ int GameLib::SetMasterVolume(int volume)
 int GameLib::GetMasterVolume() const
 {
     return _master_volume;
+}
+
+
+int GameLib::PlayBeep(int frequency, int duration, int repeat, int volume)
+{
+    if (frequency <= 0 || duration <= 0) return -1;
+    if (!_audio_initialized) {
+        _audio_initialized = _InitAudioBackend();
+        if (!_audio_initialized) return -2;
+    }
+
+    const int sample_rate = 44100;
+    const int nchannels = 1;
+    int total_samples = (int)((double)sample_rate * duration / 1000.0);
+    if (total_samples <= 0) return -1;
+
+    int16_t *pcm = new int16_t[total_samples];
+    double phase = 0.0;
+    double step = 2.0 * 3.14159265358979323846 * frequency / sample_rate;
+    int fade_samples = sample_rate / 100;
+    if (fade_samples > total_samples) fade_samples = total_samples;
+    for (int i = 0; i < total_samples; i++) {
+        pcm[i] = (int16_t)(32767.0 * 0.5 * sin(phase));
+        phase += step;
+    }
+    for (int i = 0; i < fade_samples; i++) {
+        double fade = 1.0 - (double)i / fade_samples;
+        pcm[total_samples - fade_samples + i] =
+            (int16_t)(pcm[total_samples - fade_samples + i] * fade);
+    }
+
+    int ch_id = PlayPCM(pcm, nchannels, total_samples, sample_rate, repeat, volume);
+    delete[] pcm;
+    return ch_id;
 }
 
 

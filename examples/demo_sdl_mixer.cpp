@@ -1,8 +1,7 @@
 // demo_sdl_mixer.cpp - Sound Demo (SDL-only)
 //
 // Demo GameLib sound features: beep, multi-channel WAV, background music.
-// Note: PlayBeep is blocking, will pause briefly when pressed.
-// Learn: PlayBeep, PlayWAV, StopWAV, IsPlaying, SetVolume, StopAll,
+// Learn: PlayBeep, PlayWAV, PlayPCM, StopWAV, IsPlaying, SetVolume, StopAll,
 //        SetMasterVolume, GetMasterVolume, PlayMusic, StopMusic
 //
 // Compile (SDL):   g++ -std=c++11 -O2 -o demo_sdl_mixer demo_sdl_mixer.cpp -lSDL2 -lSDL2_mixer

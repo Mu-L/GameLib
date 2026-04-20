@@ -1,8 +1,7 @@
 // 06_sound.cpp - Sound Demo
 //
 // Demo GameLib sound features: beep, multi-channel WAV, background music.
-// Note: PlayBeep is blocking, will pause briefly when pressed.
-// Learn: PlayBeep, PlayWAV, StopWAV, IsPlaying, SetVolume, StopAll,
+// Learn: PlayBeep, PlayWAV, PlayPCM, StopWAV, IsPlaying, SetVolume, StopAll,
 //        SetMasterVolume, GetMasterVolume, PlayMusic, StopMusic
 //
 // Compile (Win32): g++ -o 06_sound.exe 06_sound.cpp -mwindows
