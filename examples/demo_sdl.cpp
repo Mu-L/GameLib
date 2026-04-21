@@ -176,6 +176,7 @@ int main()
     double playerY = (double)((fgRows - 3) * fgTileSize - CHAR_FOOT);
     double speed = 180.0;
     int facing = 1;
+    bool aspectLocked = false;
 
     while (!game.IsClosed()) {
         double dt = game.GetDeltaTime();
@@ -216,6 +217,8 @@ int main()
 
             game.Clear(COLOR_RGB(18, 20, 28));
             game.DrawText(24, 6, "SDL Demo 1 - Clip windows for scene, shapes, and text", COLOR_WHITE);
+            game.DrawPrintf(24, 18, COLOR_LIGHT_GRAY, "Aspect lock: %s  (F11 to toggle)",
+                            aspectLocked ? "ON" : "OFF");
             game.DrawText(24, 18, "Move with A/D or arrows. ESC quits.", COLOR_LIGHT_GRAY);
 
             game.SetClip(SCENE_X, SCENE_Y, SCENE_W, SCENE_H);
@@ -296,7 +299,11 @@ int main()
             game.DrawRect(TEXT_X - 1, TEXT_Y - 1, TEXT_W + 2, TEXT_H + 2, COLOR_WHITE);
             game.DrawText(TEXT_X + 8, TEXT_Y + 8, "Text Clip", COLOR_WHITE);
 
-			if (game.IsKeyPressed(KEY_F12)) game.Screenshot("screenshot.bmp");
+            if (game.IsKeyPressed(KEY_F11)) {
+                aspectLocked = !aspectLocked;
+                game.AspectLock(aspectLocked, COLOR_RED);
+            }
+            if (game.IsKeyPressed(KEY_F12)) game.Screenshot("screenshot.bmp");
             if (game.IsKeyPressed(KEY_ESCAPE)) break;
             game.Update();
             game.WaitFrame(60);

@@ -5,9 +5,9 @@
 //   - Shape window: lines / circles / triangles clipped by SetClip
 //   - Text window: DrawTextFont / DrawText / DrawPrintf clipped by SetClip
 //
-// Controls: <- -> or A/D move character, F12 screenshot, ESC to quit
+// Controls: <- -> or A/D move character, F11 toggle aspect lock, F12 screenshot, ESC to quit
 // Learn: SetClip, ClearClip, GetClip, DrawTilemap, DrawSpriteEx,
-//        DrawTextFont, DrawText, DrawLine, FillCircle, FillTriangle
+//        DrawTextFont, DrawText, DrawLine, FillCircle, FillTriangle, AspectLock
 //
 // Compile: g++ -o 19_clip_tilemap.exe 19_clip_tilemap.cpp -mwindows
 
@@ -82,8 +82,6 @@ int main()
 
     game.Open(SW, SH, "Demo 1 - Clip Rectangle Tilemap", true, true);
     game.ShowFps(true);
-	game.AspectLock(true, COLOR_BLUE);
-	game.WinResize(800, 600);
 
     int fgTileset = game.LoadSprite("../assets/tileset.png");
     int bgTileset = makeBgTileset(game);
@@ -142,6 +140,7 @@ int main()
     double playerY = (double)((fgRows - 3) * fgTileSize - CHAR_FOOT);
     double speed = 180.0;
     int facing = 1;
+    bool aspectLocked = false;
 
     while (!game.IsClosed()) {
         double dt = game.GetDeltaTime();
@@ -176,6 +175,8 @@ int main()
         game.Clear(COLOR_RGB(18, 20, 28));
 
         game.DrawText(24, 6, "Demo 1 - SetClip windows for scene, shapes, and text", COLOR_WHITE);
+        game.DrawPrintf(24, 18, COLOR_LIGHT_GRAY, "Aspect lock: %s  (F11 to toggle)",
+                        aspectLocked ? "ON" : "OFF");
 
         game.SetClip(SCENE_X, SCENE_Y, SCENE_W, SCENE_H);
         game.Clear(COLOR_RGB(135, 206, 235));
@@ -247,6 +248,10 @@ int main()
         game.DrawRect(TEXT_X - 1, TEXT_Y - 1, TEXT_W + 2, TEXT_H + 2, COLOR_WHITE);
         game.DrawText(TEXT_X + 8, TEXT_Y + 8, "Text Clip", COLOR_WHITE);
 
+        if (game.IsKeyPressed(KEY_F11)) {
+            aspectLocked = !aspectLocked;
+            game.AspectLock(aspectLocked, COLOR_RED);
+        }
         if (game.IsKeyPressed(KEY_F12)) game.Screenshot("screenshot.bmp");
         if (game.IsKeyPressed(KEY_ESCAPE)) break;
         game.Update();
