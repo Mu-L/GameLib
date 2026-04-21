@@ -4,10 +4,10 @@
 
 `GameLib.h` 是一个面向初学者的 **单头文件游戏库**，基于 Win32 GDI，无需 SDL 或其他第三方库。目标用户是小朋友，用于在 Dev C++ (GCC 4.9.2) 环境下开发简单游戏（空战、俄罗斯方块、走迷宫等）。
 
-**当前版本**: `1.9.5`
+**当前版本**: `1.9.6`
 **最后修改**: 2026/04/21
 
-当前 `1.9.5` 的稳定范围包括：窗口与输入、图元与文字、精灵与 Tilemap、声音、场景管理、纯文本存档，以及固定 framebuffer + 可选可缩放窗口。音效子系统从 PlaySoundW 单声道改为多通道软件混音器（最多 32 通道并发，支持音量/主音量控制）；新增 `DrawPrintfScale`、`KEY_ADD`/`KEY_SUBTRACT` 键常量；音频后端改为惰性初始化。Tilemap 不再缓存 `tilesetTileCount`；地图里超出当前 tileset 范围的非负 `tileId` 会在绘制时自动跳过。窗口缩放时继续返回 framebuffer 逻辑坐标的鼠标位置。新增 `GetFramebuffer()` 直接暴露 framebuffer 指针。`DrawTextScale` 内部改为预计算查找表缩放（替代逐像素除法），alpha==255 时直写 framebuffer，最大缩放尺寸 1024。`FillRect` 不透明路径改为首行填充 + memcpy 复制后续行；`DrawText` 空行（bits==0）整体跳过；`DrawTextScale` 当 `w==8 && h==8` 时直接走 `DrawText` 快路径。
+当前 `1.9.6` 的稳定范围包括：窗口与输入、图元与文字、精灵与 Tilemap、声音、场景管理、纯文本存档，以及固定 framebuffer + 可选可缩放窗口。音效子系统从 PlaySoundW 单声道改为多通道软件混音器（最多 32 通道并发，支持音量/主音量控制）；新增 `DrawPrintfScale`、`KEY_ADD`/`KEY_SUBTRACT` 键常量；音频后端改为惰性初始化。Tilemap 不再缓存 `tilesetTileCount`；地图里超出当前 tileset 范围的非负 `tileId` 会在绘制时自动跳过。窗口缩放时继续返回 framebuffer 逻辑坐标的鼠标位置。新增 `GetFramebuffer()` 直接暴露 framebuffer 指针。`DrawTextScale` 内部改为预计算查找表缩放（替代逐像素除法），alpha==255 时直写 framebuffer，最大缩放尺寸 1024。`FillRect` 不透明路径改为首行填充 + memcpy 复制后续行；`DrawText` 空行（bits==0）整体跳过；`DrawTextScale` 当 `w==8 && h==8` 时直接走 `DrawText` 快路径。`_SetMouseFromWindowCoords` 在 aspect lock 模式下改为实时计算布局，不再依赖 `_PresentFrame` 中缓存的存储值，修复了窗口最大化再还原后鼠标坐标偏移的问题。
 
 ---
 
