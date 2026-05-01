@@ -67,7 +67,9 @@ int main() {
 - 不追求与 `GameLib.h` 在每个后端细节上完全逐像素一致。
 - 不追求同时包含 Win32 后端和 SDL 后端于同一个 `GameLib.h` 内。
 - 不追求暴露 GPU 渲染管线、着色器、OpenGL/Vulkan 等高级接口。
-- 不追求移动端、Web 端、手柄、触摸输入等首版支持。
+- 不追求移动端、手柄、触摸输入等首版支持。
+
+说明：Web 端（Emscripten/WASM）已作为实验性支持加入，`WaitFrame()` 和 `LoadSprite()` 在 `__EMSCRIPTEN__` 下有专门适配，但整体仍属于实验阶段，不承诺与桌面端行为完全一致。
 
 ---
 
@@ -80,6 +82,7 @@ int main() {
 | Windows | 目标支持 | MinGW / MSVC 均可，依赖 SDL2 运行时 |
 | macOS | 目标支持 | Clang + SDL2 系列库 |
 | Linux | 目标支持 | 依赖 SDL2 视频后端，覆盖 X11 / Wayland |
+| Emscripten (WASM) | 实验性支持 | 需要 `-s ASYNCIFY=1`，`WaitFrame()` 用 `emscripten_sleep()` 替代忙等 |
 
 ### 2.2 Linux 桌面环境说明
 
@@ -253,10 +256,29 @@ macOS（Homebrew 安装 SDL 后）示例：
 clang++ -std=c++11 -o game main.cpp $(sdl2-config --cflags --libs) -lSDL2_image -lSDL2_ttf -lSDL2_mixer
 ```
 
+Emscripten（WebAssembly）示例：
+
+```bash
+emcc -std=c++11 -O2 \
+     -s USE_SDL=2 -s USE_SDL_IMAGE=2 --use-port=sdl2_image:formats=png \
+     -s USE_SDL_TTF=2 -s USE_SDL_MIXER=2 -s ASYNCIFY=1 \
+     main.cpp -o game.html --preload-file assets
+```
+
+说明：
+
+- `-s USE_SDL=2` 等：使用 Emscripten 内置 SDL2 port，不要和 vcpkg 安装的库混用。
+- `--use-port=sdl2_image:formats=png`：**必须显式指定格式**，默认的 `-s USE_SDL_IMAGE=2` 不启用任何图片解码器，PNG/JPG 都无法加载。可用格式：`png`、`jpg`、`bmp`、`gif` 等。
+- `-s ASYNCIFY=1`：**必须启用**。`GameLib.SDL.h` 在 `__EMSCRIPTEN__` 下用 `emscripten_sleep()` 替代 `SDL_Delay()`，让每帧交出控制权给浏览器事件循环。没有 Asyncify 时 `emscripten_sleep()` 会阻塞浏览器主线程。
+- `--preload-file assets`：将资源目录打包到虚拟文件系统。代码中的 `assets/tileset.png` 等路径会从 MEMFS 加载。
+- 输出 `.html` 可直接在浏览器打开；也可输出 `.js` + `.wasm` 嵌入自定义页面。
+- SDL2_mixer port 默认只支持 OGG 和 WAV，不支持 MP3/FLAC/MIDI。
+
 运行时说明：
 
 - Windows 下若使用动态库版本，还需要确保 `SDL2.dll`、`SDL2_image.dll`、`SDL2_ttf.dll`、`SDL2_mixer.dll` 等运行时 DLL 能被找到。
 - 最简单的方式是把它们放到可执行文件同目录，或保证其所在目录已加入 `PATH`。
+- WASM 版需要通过 HTTP 服务器访问（如 `python -m http.server`），不能直接用文件协议打开。
 
 ---
 

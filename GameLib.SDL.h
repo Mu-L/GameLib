@@ -720,6 +720,10 @@ static const unsigned char _gamelib_font8x8[95][8] = {
 
 #ifdef GAMELIB_SDL_IMPLEMENTATION
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
 bool GameLib::_srandDone = false;
 
 static int _gamelib_floor_div(int value, int divisor)
@@ -1802,6 +1806,16 @@ void GameLib::WaitFrame(int fps)
 
     uint64_t target = _frameStartCounter + frameTime;
     uint64_t now = (uint64_t)SDL_GetPerformanceCounter();
+
+#if defined(__EMSCRIPTEN__)
+    if (now < target) {
+        uint64_t remaining = target - now;
+        double remainingMs = (double)remaining * 1000.0 / (double)_perfFrequency;
+        if (remainingMs > 0.0) {
+            emscripten_sleep((int)remainingMs);
+        }
+    }
+#else
     if (now >= target) {
         _frameStartCounter = now;
         return;
@@ -1820,6 +1834,7 @@ void GameLib::WaitFrame(int fps)
             SDL_Delay(0);
         }
     }
+#endif
 
     _frameStartCounter = target;
 }
@@ -2980,7 +2995,15 @@ int GameLib::LoadSprite(const char *filename)
 
 #if GAMELIB_SDL_HAS_IMAGE
     if (_EnsureImageReady()) {
+#if defined(__EMSCRIPTEN__)
+        SDL_RWops *rw = SDL_RWFromFile(filename, "rb");
+        SDL_Surface *loaded = NULL;
+        if (rw) {
+            loaded = IMG_Load_RW(rw, 1);
+        }
+#else
         SDL_Surface *loaded = IMG_Load(filename);
+#endif
         if (loaded) {
             SDL_Surface *argb = SDL_ConvertSurfaceFormat(loaded, SDL_PIXELFORMAT_ARGB8888, 0);
             SDL_FreeSurface(loaded);

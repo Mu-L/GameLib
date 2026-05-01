@@ -102,7 +102,24 @@ g++ -std=c++11 -O2 -o game main.cpp $(sdl2-config --cflags --libs) -lSDL2_image 
 clang++ -std=c++11 -O2 -o game main.cpp $(sdl2-config --cflags --libs) -lSDL2_image -lSDL2_ttf -lSDL2_mixer
 ```
 
-### 3.5 只测 SDL2 核心能力的写法
+### 3.5 Emscripten (WebAssembly)
+
+```bash
+emcc -std=c++11 -O2 \
+     -s USE_SDL=2 -s USE_SDL_IMAGE=2 --use-port=sdl2_image:formats=png \
+     -s USE_SDL_TTF=2 -s USE_SDL_MIXER=2 -s ASYNCIFY=1 \
+     main.cpp -o game.html --preload-file assets
+```
+
+关键说明：
+
+- **`-s ASYNCIFY=1` 必须启用**：`GameLib.SDL.h` 在 Emscripten 下用 `emscripten_sleep()` 替代 `SDL_Delay()`，让每帧交出控制权给浏览器；没有 Asyncify 时浏览器主线程会阻塞卡死。
+- **`--use-port=sdl2_image:formats=png` 必须指定**：默认 `-s USE_SDL_IMAGE=2` 不启用任何图片解码器，PNG 无法加载。可追加 `jpg` 等格式。
+- **`--preload-file assets`**：将资源打包到虚拟文件系统，代码中的 `assets/*.png` 等路径会从 MEMFS 加载。
+- WASM 版需要通过 HTTP 服务器访问，不能直接用文件协议打开。
+- SDL2_mixer port 默认只支持 OGG 和 WAV，不支持 MP3/FLAC/MIDI。
+
+### 3.6 只测 SDL2 核心能力的写法
 
 ```cpp
 #define GAMELIB_SDL_DISABLE_IMAGE 1
