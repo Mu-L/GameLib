@@ -97,7 +97,7 @@ Dev C++ 用户：新建项目 > 添加 `main.cpp` > 编译运行，完事。
 
 ![](https://skywind3000.github.io/games/pics/geometry.gif)
 
-使用 GameLib 制作的《Geometry Wars》游戏，[点击试玩网页版](https://skywind3000.github.io/games/geometry/)，或者 [访问源码](https://github.com/skywind3000/GameSamples)。
+使用 GameLib 制作的《Geometry Wars》游戏，玩起来精彩刺激，但 GIF 录屏效果损失太大，可以 [点击试玩网页版](https://skywind3000.github.io/games/geometry/) 或者 [访问源码](https://github.com/skywind3000/GameSamples)。
 
 ## 示例程序
 
