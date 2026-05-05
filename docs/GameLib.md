@@ -316,8 +316,8 @@ struct _Channel {
     uint32_t position;
     bool is_playing;
 };
-std::unordered_map<std::string, _WavData*> _wav_cache;
-std::unordered_map<int, _Channel*> _audio_channels;
+std::map<std::string, _WavData*> _wav_cache;
+std::map<int, _Channel*> _audio_channels;
 int64_t _next_channel_id;
 bool _audio_initialized;
 int _master_volume;
@@ -1231,7 +1231,7 @@ int main() {
 | WAV 重采样使用线性插值 + 边界钳制 | `step = src_rate / target_rate`，浮点源索引取整后 clamp 到 `samples_per_channel - 1`，防止越界读 |
 | WAV 文件按路径缓存 | 同一文件只读一次，重复播放从缓存取 `_WavData`，避免磁盘重复 IO |
 | PlayPCM 临时数据 `temporary` 标记 | `temporary=true` 的 `_WavData` 在 ref_count 递减后立即释放；复用 `_ConvertToTargetFormat`，栈上借用外部指针零拷贝 |
-| 通道 ID 用自增 `int64_t` 分配 | 简单无冲突，关闭通道后 ID 不回收；`unordered_map<int, _Channel*>` 管理活跃通道 |
+| 通道 ID 用自增 `int64_t` 分配 | 简单无冲突，关闭通道后 ID 不回收；`map<int, _Channel*>` 管理活跃通道 |
 | 混音缓冲使用 `int32_t` 累加 | 防止多通道叠加溢出 16-bit；最终按 `master_volume * channel_volume / 1000000` 钳制后截断为 `int16_t` |
 | `DrawTextScale` 预计算查找表缩放 | 替代逐像素除法，按缩放因子预生成 x/y 索引表；alpha==255 时直写 framebuffer 略过混合；最大缩放尺寸 1024 |
 | `FillRect` 不透明路径首行填充 + memcpy | alpha==255 时首行逐像素写入，后续行用 memcpy 从第一行复制，宽矩形性能显著提升 |

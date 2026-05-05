@@ -1002,8 +1002,8 @@ struct _Channel {
     uint32_t position;
     bool is_playing;
 };
-std::unordered_map<std::string, _WavData*> _wav_cache;
-std::unordered_map<int, _Channel*> _audio_channels;
+std::map<std::string, _WavData*> _wav_cache;
+std::map<int, _Channel*> _audio_channels;
 int64_t _next_channel_id;
 bool _audio_initialized;
 int _master_volume;
@@ -1023,8 +1023,8 @@ bool _musicPlaying;
 int _mixerInitFlags;
 
 // Mixer 通道模式（仅 GAMELIB_SDL_USE_MIXER_CHANNELS 启用时使用）
-std::unordered_map<std::string, Mix_Chunk*> _chunk_cache;
-std::unordered_map<int, Mix_Chunk*> _temp_chunks;
+std::map<std::string, Mix_Chunk*> _chunk_cache;
+std::map<int, Mix_Chunk*> _temp_chunks;
 
 // 场景状态
 int _scene;
